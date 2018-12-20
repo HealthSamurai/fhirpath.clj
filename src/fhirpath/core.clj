@@ -36,11 +36,7 @@
       (first (proxy-super visitChildren ctx)))
 
     (visitIndexerExpression [^FHIRPathParser$IndexerExpressionContext ctx]
-      (to-list ['fhirpath.core/fp-nth
-                (first (proxy-super visitChildren (.expression ctx 0)))
-                (first (proxy-super visitChildren (.expression ctx 1)))])
-
-      )
+      (to-list (into ['fhirpath.core/fp-nth]  (proxy-super visitChildren ctx))))
 
     (visitMembershipExpression [^FHIRPathParser$MembershipExpressionContext ctx]
       [:member (proxy-super visitChildren ctx)]
@@ -197,13 +193,8 @@
                 ))
             v)))
 
-
-
-
 (defn fp-nth [s n]
-  (println (seqy s) (int n)
-           (get (seqy s) (int n)))
-  (get (seqy s) (int n)))
+  (nth (seqy s) (int n) nil))
 
 
 (defn compile [expr]
@@ -276,23 +267,22 @@
                          (into #{} (seqy m))))
 
 
+
 (defn fp-isDistinct [s]
-  (distinct? s))
+  (let [s (seqy s)]
+    (if (empty? s)
+      true
+      (apply distinct? (seqy s)))))
+
 
 (defn fp-distinct [s]
   (dedupe (seqy s)))
 
-(parse "a.exists(a = 1)")
-(parse "Functions.coll1[0]")
+;; (parse "a.exists(a = 1)")
+;; (parse "Functions.coll1[0]")
 
-(fp "Functions.coll1"
-    {:resourceType "Functions"
-     :coll1 [{:coll2 [{:attr 1} {:attr 2}]}]})
+;; (fp "Functions.coll1"
+;;     {:resourceType "Functions"
+;;      :coll1 [{:coll2 [{:attr 1} {:attr 2}]}]})
 
-(do
-  (println "\n\n")
-  (parse "a.coll1.coll2[0]"))
 
-(fp "Functions.coll1[0]"
-    {:resourceType "Functions"
-     :coll1 [{:coll2 [{:attr 1} {:attr 2}]}]})

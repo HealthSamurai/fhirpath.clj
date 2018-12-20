@@ -320,7 +320,7 @@ tests:
 
   - desc: '** distinct of coll with same values'
     expression: Functions.coll1[2].colltrue.attr.distinct()
-    result: true
+    result: [true]
 
   - desc: '** distinct of coll with different values'
     expression: Functions.coll1[0].coll2.attr.distinct()

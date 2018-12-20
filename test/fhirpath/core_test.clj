@@ -44,8 +44,11 @@
   )
 
 
+(defn load-case [path]
+  (yaml/parse-string (slurp (io/resource path))))
+
 (defn do-test [path]
-  (let [data (yaml/parse-string (slurp (io/resource path)))]
+  (let [data (load-case path)]
     (doseq [t (:tests data)]
       (println (:desc t))
       (println "EXPR=>" (:expression t))
@@ -53,7 +56,9 @@
       (when (:expression t)
         (let [res (sut/fp (:expression t) (:subject data))]
           (is (= (:result t) res)
-              (str (:desc t) " " (:expression t) )))))))
+              (str (:desc t) " \n'" (:expression t) "' "
+                   "\n"
+                   (:result t) "!=" res)))))))
 
 (deftest fhipath-tests
   (do-test "cases/4.1_literals.yaml")
@@ -90,8 +95,54 @@
   (is (sut/fp "b.subsetOf(a)" {:a [1 2 3] :b [1 2]}))
   (is (not (sut/fp "a.subsetOf(b)" {:a [1 2 3] :b [1 2]})))
 
+  (is (= 2
+         (sut/fp "Functions.coll1[0].coll2[1].attr"
+             {:resourceType "Functions"
+              :coll1 [{:coll2 [{:attr 1} {:attr 2}]}]})))
 
+  (sut/parse "Functions.coll1[0].coll2.attr")
+
+  (is (= [1 2 3]
+         (sut/fp
+          "Functions.coll1[0].coll2.attr"
+          {:resourceType "Functions"
+           :coll1 [{:coll2 [{:attr 1} {:attr 2} {:attr 3}]}
+                   {:coll2 [{:attr 4} {:attr 5}]}]})))
   
+  (is (= [4 5]
+         (sut/fp
+          "Functions.coll1[1].coll2.attr"
+          {:resourceType "Functions"
+           :coll1 [{:coll2 [{:attr 1} {:attr 2} {:attr 3}]}
+                   {:coll2 [{:attr 4} {:attr 5}]}]})))
+
+  (def edata (:subject (load-case "cases/5.1_existence.yaml")))
+  (sut/fp
+   "Functions.attrdouble.subsetOf(Functions.coll1[0].coll2.attr)"
+   edata)
+
+  (sut/fp "Functions.attrdouble" edata)
+
+  (sut/parse "Functions.coll1[0]")
+
+  (sut/fp "Functions.coll1" edata)
+
+  (sut/fp
+   "Functions.attrdouble.subsetOf(Functions.coll1[0].coll2.attr)"
+   (load-case "cases/5.1_existence.yaml"))
+
+  (sut/fp
+   "Functions.attrdouble.supersetOf(Functions.coll1[0].coll2.attr"
+   (load-case "cases/5.1_existence.yaml"))
+  
+  (is (not (sut/fp "collfalse.attr.isDistinct()"
+                   {:collfalse [{:attr false}
+                                {:attr false}]})))
+
+
+  (sut/fp "collfalse.attr.isDistinct()" {:collfalse [{:attr false}
+                                                     {:attr false}]})
+
   (do-test "cases/5.2_filtering_and_projection.yaml")
 
   (do-test "cases/5.1_existence.yaml")
