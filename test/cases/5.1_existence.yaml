@@ -6,15 +6,15 @@ tests:
 
   - desc: '** empty coll'
     expression: Functions.attrempty.empty()
-    result: [true]
+    result: true
 
   - desc: '** not empty coll'
     expression: Functions.attrsingle.empty()
-    result: [false]
+    result: false
 
   - desc: '** empty nothing'
     expression: Functions.nothing.empty()
-    result: [true]
+    result: true
 
   - desc: '5.1.2. not() : boolean'
 # Returns true if the input collection evaluates to
@@ -36,15 +36,15 @@ tests:
 
   - desc: '** not true is false'
     expression: Functions.attrtrue.not()
-    result: [false]
+    result: false
 
   - desc: '** not false is true'
     expression: Functions.attrfalse.not()
-    result: [true]
+    result: true
 
   - desc: '** true with double not is true'
     expression: Functions.attrtrue.not().not()
-    result: [true]
+    result: true
 
   - desc: '** empty coll with not() is empty coll'
     expression: Functions.attrempty.not()
@@ -52,15 +52,15 @@ tests:
 
   - desc: '** not empty, non-boolean coll with not() is empty'
     expression: Functions.attrdouble.not()
-    result: []
+    result: false
 
   - desc: '** multi-valued boolean coll with not() is empty'
     expression: Functions.attrdouble.not()
-    result: []
+    result: false
 
   - desc: '** not nothing is empty coll'
     expression: Functions.nothing.not()
-    result: []
+    result: true
 
 
   - desc: '5.1.3. exists([criteria : expression]) : boolean'
@@ -70,30 +70,30 @@ tests:
 
   - desc: '** exists for not empty coll should return true'
     expression: Functions.coll1.exists()
-    result: [true]
+    result: true
 
 
   - desc: '** exists for empty coll should return false'
     expression: Functions.attrempty.exists()
-    result: [false]
+    result: false
 
   - desc: '** exists for undefined coll should return false'
     expression: Functions.nothing.exists()
-    result: [false]
+    result: false
 
 # The operator can also take an optional criteria to be applied to the collection prior to the determination of the exists. In this case, the operation is shorthand for where(criteria).exists().
 
   - desc: '** exists with criteria should work'
     expression: Functions.coll1.coll2.attr.exists($this > 0)
-    result: [true]
+    result: true
 
   - desc: '** exists with criteria should work for empty filtered coll'
     expression: Functions.coll1.coll2.attr.exists($this < 0)
-    result: [false]
+    result: false
 
   - desc: '** exists with criteria should work for not exists coll '
     expression: Functions.nothing.attr.exists($this < 0)
-    result: [false]
+    result: false
 
 
   - desc: '5.1.4. all(criteria : expression) : boolean'
@@ -102,20 +102,20 @@ tests:
 
   - desc: '** all for empty coll is true'
     expression: Functions.attrempty.all($this > 0)
-    result: [true]
+    result: true
 
   - desc: '** all for non-exists coll is true'
     expression: Functions.nothing.all($this > 0)
-    result: [true]
+    result: true
 
   - desc: '** all for evaluations is true'
     expression: Functions.coll1.coll2.attr.all($this > 0)
-    result: [true]
+    result: true
 
 
   - desc: '** not all evaluations is true'
     expression: Functions.coll1.coll2.attr.all($this = 5)
-    result: [false]
+    result: false
 
 
   - desc: '5.1.5. allTrue() : boolean'
@@ -125,19 +125,19 @@ tests:
 
   - desc: '** allTrue for empty coll is true'
     expression: Functions.attrempty.allTrue()
-    result: [true]
+    result: true
 
   - desc: '** allTrue for coll with all true items is true'
     expression: Functions.coll1.colltrue.attr.allTrue()
-    result: [true]
+    result: true
 
   - desc: '** allTrue for coll with false value'
     expression: Functions.coll1.collwithfalse.attr.allTrue()
-    result: [false]
+    result: false
 
   - desc: '** allTrue for non exists coll is true'
     expression: Functions.nothing.allTrue()
-    result: [true]
+    result: true
 
 
   - desc: '5.1.6. anyTrue() : boolean'
@@ -147,19 +147,19 @@ tests:
 
   - desc: '** anyTrue for empty coll is false'
     expression: Functions.attrempty.anyTrue()
-    result: [false]
+    result: false
 
   - desc: '** anyTrue for non-exists coll is false'
     expression: Functions.nothing.anyTrue()
-    result: [false]
+    result: false
 
   - desc: '** anyTrue for coll with true value'
     expression: Functions.coll1.collwithfalse.attr.anyTrue()
-    result: [true]
+    result: true
 
   - desc: '** anyTrue for coll with all false values'
     expression: Functions.coll1.collfalse.attr.anyTrue()
-    result: [false]
+    result: false
 
 
   - desc: '5.1.7. allFalse() : boolean'
@@ -169,19 +169,19 @@ tests:
 
   - desc: '** allFalse for empty coll is true'
     expression: Functions.attrempty.allFalse()
-    result: [true]
+    result: true
 
   - desc: '** allFalse for non-exists coll is true'
     expression: Functions.nothing.allFalse()
-    result: [true]
+    result: true
 
   - desc: '** allFalse for coll with all false items is true'
     expression: Functions.coll1.collfalse.attr.allFalse()
-    result: [true]
+    result: true
 
   - desc: '** allFalse for coll with true value'
     expression: Functions.coll1.collwithfalse.attr.allFalse()
-    result: [false]
+    result: false
 
 
   - desc: '5.1.8. anyFalse() : boolean'
@@ -191,19 +191,19 @@ tests:
 
   - desc: '** anyFalse for empty coll is false'
     expression: Functions.attrempty.anyFalse()
-    result: [false]
+    result: false
 
   - desc: '** anyFalse for non-exists coll is false'
     expression: Functions.nothing.anyFalse()
-    result: [false]
+    result: false
 
   - desc: '** anyFalse for coll with false value'
     expression: Functions.coll1.collwithfalse.attr.anyFalse()
-    result: [true]
+    result: true
 
   - desc: '** anyFalse for coll with all true values'
     expression: Functions.coll1.colltrue.attr.anyFalse()
-    result: [false]
+    result: false
 
   - desc: 'TODO 5.1.5 - 5.1.8 add test for non-boolean values'
 
@@ -220,27 +220,27 @@ tests:
 
   - desc: '** if input coll is empty - result of subset is true'
     expression: Functions.attrempty.subsetOf(Functions.attrdouble)
-    result: [true]
+    result: true
 
   - desc: '** if argument coll is empty - result of subset is false'
     expression: Functions.attrdouble.subsetOf(Functions.attrempty)
-    result: [false]
+    result: false
 
   - desc: '** if argument coll isnt exists -  result of subset is false'
     expression: Functions.attrdouble.subsetOf(Functions.attrempty)
-    result: [false]
+    result: false
 
   - desc: '** if input coll is subset of argument coll'
     expression: Functions.attrdouble.subsetOf(Functions.coll1[0].coll2.attr)
-    result: [true]
+    result: true
 
   - desc: '** if input coll isnt subset of argument coll'
     expression: Functions.coll1[0].coll2.attr.subsetOf(Functions.attrdouble)
-    result: [false]
+    result: false
 
   - desc: '** should treat objects with different key orders as equivalent'
     expression: Functions.subsetTestC1.subsetOf(Functions.subsetTestC2)
-    result: [true]
+    result: true
 
   - desc: '** 5.1.10. supersetOf(other : collection) : boolean'
 # Returns true if all items in the collection passed as the other argument are members of the input
@@ -255,23 +255,23 @@ tests:
 
   - desc: '** if argumet coll is empty - result of superset is true'
     expression: Functions.attrdouble.supersetOf(Functions.attrempty)
-    result: [true]
+    result: true
 
   - desc: '** if input coll is empty - result of superset is false'
     expression: Functions.attrempty.supersetOf(Functions.attrdouble)
-    result: [false]
+    result: false
 
   - desc: '** if input coll isnt exists and argument is non-empty, result of superset is false'
     expression: Functions.attrempty.supersetOf(Functions.attrdouble)
-    result: [false]
+    result: false
 
   - desc: '** if argument coll is superset of input coll result is true'
     expression: Functions.coll1[0].coll2.attr.supersetOf(Functions.attrdouble)
-    result: [true]
+    result: true
 
   - desc: '** if argument coll isnt superset of input coll result is false'
     expression: Functions.attrdouble.supersetOf(Functions.coll1[0].coll2.attr)
-    result: [false]
+    result: false
 
 
   - desc: '5.1.11. isDistinct() : boolean'
@@ -288,19 +288,19 @@ tests:
 
   - desc: '** isDistinct of empty input coll is true'
     expression: Functions.attrempty.isDistinct()
-    result: [true]
+    result: true
 
   - desc: '** isDistinct of non-exists coll is true'
     expression: Functions.nothing.isDistinct()
-    result: [true]
+    result: true
 
   - desc: '** isDistinct of distinct coll'
     expression: Functions.coll1.coll2.attr.isDistinct()
-    result: [true]
+    result: true
 
   - desc: '** isDistinct of coll with same values'
     expression: Functions.coll1.collfalse.attr.isDistinct()
-    result: [false]
+    result: false
 
 
   - desc: '5.1.12. distinct() : collection'
@@ -320,7 +320,7 @@ tests:
 
   - desc: '** distinct of coll with same values'
     expression: Functions.coll1[2].colltrue.attr.distinct()
-    result: [true]
+    result: true
 
   - desc: '** distinct of coll with different values'
     expression: Functions.coll1[0].coll2.attr.distinct()
@@ -334,19 +334,19 @@ tests:
 
   - desc: '** count'
     expression: Functions.coll1.count()
-    result: [6]
+    result: 6
 
   - desc: '** nested count'
     expression: Functions.coll1.coll2.count()
-    result: [5]
+    result: 5
 
   - desc: '** nested count (alternative)'
     expression: Functions.coll1[0].coll2.count()
-    result: [3]
+    result: 3
 
   - desc: '** 0 if nothing'
     expression: Functions.ups.count()
-    result: [0]
+    result: 0
 
 
 subject:

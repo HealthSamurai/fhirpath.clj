@@ -1,4 +1,4 @@
-{:paths ["src" "parser" "parser/antlr-4.7.2-complete.jar"]
+{:paths ["src" "parser" "parser/antlr-4.7.2-complete.jar" "test"]
  :deps {exoscale/clj-yaml {:mvn/version "0.5.6"}}
 
  :aliases

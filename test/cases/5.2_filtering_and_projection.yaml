@@ -65,7 +65,7 @@ tests:
     # result: [true, true, true]
   - desc: '** find all attrs'
     expression: Functions.repeat(repeatingAttr).count()
-    result: [2]
+    result: 2
 
   - desc: '** find all repeatingAttr.a values'
     expression: Functions.repeat(repeatingAttr).a

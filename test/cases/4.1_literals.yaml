@@ -1,5 +1,7 @@
 tests:
   - expression: '{}'
     result: []
+  - expression: "'string'"
+    result: string 
 subject:
   prop: val
