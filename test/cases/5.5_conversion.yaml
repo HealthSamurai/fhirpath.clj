@@ -12,23 +12,23 @@ tests:
 
   - desc: '** boolean - true'
     expression: 'true'
-    result: [true]
+    result: true
 
   - desc: '** boolean - false'
     expression: 'false'
-    result: [false]
+    result: false
 
   - desc: '** iif'
     expression: Functions.iif(true, 'a', 'b')
-    result: ['a']
+    result: 'a'
 
   - desc: '** iif 2'
     expression: Functions.iif(false, 'a', 'b')
-    result: ['b']
+    result: 'b'
 
   - desc: '** iif 3'
     expression: Functions.iif(coll1[0].coll2[0].attr = 1, coll1[0].coll2[0].attr, coll1[0].coll2[1].attr)
-    result: [1]
+    result: 1
 
   - desc: '5.5.2. toInteger() : integer'
     # If the input collection contains a single item, this functio# n will return a single integer if:
@@ -41,11 +41,11 @@ tests:
     # In all other cases, the function will return an empty collection.
   - desc: '** Bool to int'
     expression: Functions.attrtrue.toInteger()
-    result: [1]
+    result: 1
 
   - desc: '** str to int'
     expression: intstr.toInteger()
-    result: [101]
+    result: 101
 
   - desc: '5.5.3. toDecimal() : decimal'
 # If the input collection contains a single item, this function will return a single decimal if:
@@ -57,11 +57,11 @@ tests:
 # In all other cases, the function will return an empty collection.
   - desc: '** Bool to decimal'
     expression: Functions.attrtrue.toDecimal()
-    result: [1.0]
+    result: 1.0
 
   - desc: '** str to decimal'
     expression: decstr.toDecimal()
-    result: [101.99]
+    result: 101.99
 
 
   - desc: '5.5.4. toString() : string'
@@ -95,11 +95,11 @@ tests:
 
   - desc: '** bool to string'
     expression: attrtrue.toString()
-    result: ['true']
+    result: 'true'
 
   - desc: '** bool to string'
     expression: attrdec.toString()
-    result: ['101.99']
+    result: '101.99'
 
 
 

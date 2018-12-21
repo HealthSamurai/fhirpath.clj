@@ -54,9 +54,11 @@
       (println "EXPR=>" (:expression t))
 
       (when (:expression t)
-        (let [res (sut/fp (:expression t) (:subject data))]
+        (let [res (sut/fp (:expression t) (:subject data) (:variables t))]
           (is (= (:result t) res)
-              (str (:desc t) " \n'" (:expression t) "' "
+              (str
+               path
+               (:desc t) " \n'" (:expression t) "' "
                    "\n"
                    (:result t) "!=" res)))))))
 
@@ -166,7 +168,17 @@
    cdata)
 
   (do-test "cases/5.4_combining.yaml")
+
+  (do-test "cases/5.5_conversion.yaml")
+
+  (is (= 4 (sut/fp "a.iif(b = 3, 4, 5 )" {:a {:b 3}})))
+  (is (= 5 (sut/fp "a.iif(b = 3, 4, 5 )" {:a {:b 4}})))
+
   (do-test "cases/6.6_math.yaml")
+
+
+  (is (= 1 (sut/fp "%v.a" {} {:v {:a 1}})))
+  (do-test "cases/8_variables.yaml")
 
 
   

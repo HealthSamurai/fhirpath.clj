@@ -16,7 +16,7 @@
   (proxy [FHIRPathBaseVisitor] []
     (aggregateResult [a b]
       (->> (conj (if (sequential? a) a [a]) b)
-           (filterv identity)))
+           (filterv #(not (nil? %)))))
 
     (visitInvocationExpression [^FHIRPathParser$InvocationExpressionContext ctx]
       (to-list (into ['->] (proxy-super visitChildren ctx))))
@@ -33,25 +33,19 @@
 
 
     (visitTermExpression [^FHIRPathParser$TermExpressionContext ctx]
-      (first (proxy-super visitChildren ctx)))
+      (first (seqy (proxy-super visitChildren ctx))))
 
     (visitIndexerExpression [^FHIRPathParser$IndexerExpressionContext ctx]
       (to-list (into ['fhirpath.core/fp-nth]  (proxy-super visitChildren ctx))))
 
     (visitLiteralTerm [^FHIRPathParser$LiteralTermContext ctx]
-      (first (proxy-super visitChildren ctx)))
-
+      (first (seqy (proxy-super visitChildren ctx))))
 
     (visitEqualityExpression [^FHIRPathParser$EqualityExpressionContext ctx]
-      (to-list (into ['fhirpath.core/fp-eq] (proxy-super visitChildren ctx)))
+      (to-list (into ['fhirpath.core/fp-eq] (proxy-super visitChildren ctx))))
 
-      )
-    ;; (visitAndExpression [^FHIRPathParser$AndExpressionContext ctx])
-    ;; (visitBooleanLiteral [^FHIRPathParser$BooleanLiteralContext ctx])
-    ;; (visitDateTimeLiteral [^FHIRPathParser$DateTimeLiteralContext ctx])
-    ;; (visitDateTimePrecision [^FHIRPathParser$DateTimePrecisionContext ctx])
-    ;; (visitEqualityExpression [^FHIRPathParser$EqualityExpressionContext ctx])
-    ;; (visitExternalConstantTerm [^FHIRPathParser$ExternalConstantTermContext ctx])
+    (visitAndExpression [^FHIRPathParser$AndExpressionContext ctx]
+      (to-list (into ['fhirpath.core/fp-and] (proxy-super visitChildren ctx))))
 
     (visitFunctionInvocation [^FHIRPathParser$FunctionInvocationContext ctx]
       (let [[fn-name & params :as call] (first (proxy-super visitChildren ctx))]
@@ -60,6 +54,11 @@
           (to-list [(symbol (str "fhirpath.core/fp-" (name fn-name)))
                     (last (last (ffirst params)))])
 
+
+          (contains? #{:iif} fn-name)
+          (if-let [lambdas  (mapv (fn [l] (to-list ['fn ['doc] l])) (first params))]
+            (to-list (into [(symbol (str "fhirpath.core/fp-" (name fn-name)))] lambdas))
+            (to-list [(symbol (str "fhirpath.core/fp-" (name fn-name)))]))
           (contains? #{:where :select :repeat :exists :all} fn-name)
           (if-let [lambda  (ffirst params)]
             (to-list [(symbol (str "fhirpath.core/fp-" (name fn-name)))
@@ -102,7 +101,12 @@
                      (proxy-super visitChildren ctx))))
 
     (visitNumberLiteral [^FHIRPathParser$NumberLiteralContext ctx]
-      (Float/parseFloat (.getText (.NUMBER ctx))))
+      (read-string (.getText (.NUMBER ctx))))
+
+    (visitBooleanLiteral [^FHIRPathParser$BooleanLiteralContext ctx]
+      (if (= "true" (.getText ctx))
+        true
+        false))
 
     (visitOrExpression [^FHIRPathParser$OrExpressionContext ctx]
       (assert false))
@@ -123,6 +127,12 @@
       (to-list (into ['fhirpath.core/fp-union] (proxy-super visitChildren ctx)))
       )
 
+    ;; (visitDateTimeLiteral [^FHIRPathParser$DateTimeLiteralContext ctx])
+    ;; (visitDateTimePrecision [^FHIRPathParser$DateTimePrecisionContext ctx])
+    (visitExternalConstantTerm [^FHIRPathParser$ExternalConstantTermContext ctx]
+      ;; (to-list (into ['fhirpath.core/fp-union] (proxy-super visitChildren ctx)))
+      (let [var (keyword (subs (.getText ctx) 1))]
+        (list 'get '**env var)))
     ;; (visitUnit [^FHIRPathParser$UnitContext ctx])
     ;; (visitTimeLiteral [^FHIRPathParser$TimeLiteralContext ctx])
     ;; (visitTypeExpression [^FHIRPathParser$TypeExpressionContext ctx])
@@ -134,13 +144,6 @@
     ;; (visitQuantityLiteral [^FHIRPathParser$QuantityLiteralContext ctx])
 
     ))
-
-(defn parse [s]
-  (let [lexer  (FHIRPathLexer. (CharStreams/fromString s))
-        tokens (CommonTokenStream. lexer)
-        parser (FHIRPathParser. tokens)
-        visitor (make-visitor)]
-    (to-list (into ['fn ['doc] (.visit visitor (.expression parser))]))))
 
 (defn fp-take [subj num]
   (take (int num) subj))
@@ -160,7 +163,10 @@
           subj))))
 
 (defn fp-eq [a b]
-  (= a b))
+  (cond
+    (and (number? a) (number? b))
+    (= (double b) (double a))
+    :else (= a b)))
 
 (defn fp-subs [s a b]
   (subs s (int a) (int b)))
@@ -211,13 +217,6 @@
 
 (defn fp-nth [s n]
   (nth (seqy s) (int n) nil))
-
-
-(defn compile [expr]
-  (eval (parse expr)))
-
-(defn fp [expr data]
-  ((compile expr) data))
 
 (defn fp-ineq [op a b]
   (if (and (number? a) (number? b))
@@ -283,7 +282,6 @@
       true
       (apply distinct? (seqy s)))))
 
-
 (defn fp-distinct [s]
   (into [] (distinct (seqy s))))
 
@@ -325,9 +323,8 @@
 (defn fp-division
   [a b]
   (cond
-    (and  (number? a) (number? b)) (/ (float a) b)
+    (and  (number? a) (number? b)) (/ (double a) b)
     :else nil))
-
 
 (defn fp-+ [a b]
   (cond
@@ -341,7 +338,6 @@
     (cond
       (and  (string? a) (string? b)) (str a b)
       :else nil)))
-
 
 (defn fp-- [a b]
   (cond
@@ -358,17 +354,43 @@
     (and  (number? a) (number? b)) (mod a b)
     :else nil))
 
+(defn fp-iif [s c ok & [ups]]
+  (if (c s) (ok s) (when ups (ups s))))
 
+(defn fp-toInteger [x]
+  (cond
+    (string? x) (Integer/parseInt x)
+    (number? x) (int x)
+    (boolean? x) (if true 1 0)))
 
+(defn fp-toDecimal [x]
+  (cond
+    (string? x) (Double/parseDouble x)
+    (number? x) (double x)
+    (boolean? x) (if true 1.0 0)))
 
+(defn fp-toString [x]
+  (str x))
 
-;; (parse "1 * 2")
+(defn parse [s]
+  (let [lexer  (FHIRPathLexer. (CharStreams/fromString s))
+        tokens (CommonTokenStream. lexer)
+        parser (FHIRPathParser. tokens)
+        visitor (make-visitor)
+        body (.visit visitor (.expression parser))]
+    (to-list (into ['fn ['doc '& ['**env]] body]))))
 
-;; (fp "1 * 2" {})
+(defn compile [expr]
+  (eval (parse expr)))
 
+(defn fp [expr data & [env]]
+  (if env
+    ((compile expr) data env)
+    ((compile expr) data)))
 
-;; (parse "a.exists(a = 1)")
-;; (parse "Functions.coll1[0]")
+(parse "Functions.coll1[0].a.count().take(10)")
+
+;; (type (fp "101.99" {}))
 
 ;; (fp "Functions.coll1"
 ;;     {:resourceType "Functions"

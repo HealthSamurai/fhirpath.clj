@@ -4,6 +4,8 @@ tests:
   - expression: "'string'"
     result: string 
   - expression: "5"
+    result: 5
+  - expression: "5.0"
     result: 5.0
 subject:
   prop: val
