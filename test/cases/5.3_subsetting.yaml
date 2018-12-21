@@ -13,11 +13,11 @@ tests:
 
   - desc: '** [index]'
     expression: Functions.coll1[1].coll2[0].attr
-    result: [4]
+    result: 4
 
   - desc: '** [big index]'
     expression: Functions.coll1[100].coll2[0].attr
-    result: []
+    result: null
 
   - desc: '5.3.2. single() : collection'
 # Will return the single item in the input if there
@@ -27,21 +27,21 @@ tests:
 # if an assumption about cardinality is violated at run-time.
   - desc: '** single'
     expression: Functions.attrsingle.single()
-    result: [1]
+    result: 1
 
   - desc: '** single on nothing'
     expression: Functions.ups.single()
-    result: []
+    result: null
 
   - desc: '** single on empty'
     expression: Functions.attrempty.single()
-    result: []
+    result: null
 
   - desc: '** single on many'
     expression: Functions.attrdouble.single()
     result:
-      - $status: error
-        $error: Expected single
+      $status: error
+      $error: Expected single
 
   - desc: '5.3.3. first() : collection'
 # Returns a collection containing only the first
@@ -49,11 +49,11 @@ tests:
 # will return an empty collection if the input collection has no items.
   - desc: '** first'
     expression: Functions.attrdouble.first()
-    result: [1]
+    result: 1
 
   - desc: '** first nothing'
     expression: Functions.nothing.first()
-    result: []
+    result: null
 
   - desc: '5.3.4. last() : collection'
 # Returns a collection containing only the last item
@@ -62,19 +62,19 @@ tests:
 
   - desc: '** last'
     expression: Functions.attrdouble.last()
-    result: [2]
+    result: 2
 
   - desc: '** last (alternative)'
     expression: Functions.attrsingle.last()
-    result: [1]
+    result: 1
 
   - desc: '** last on empty'
     expression: Functions.attrempty.last()
-    result: []
+    result: null
 
   - desc: '** last nothing'
     expression: Functions.nothing.last()
-    result: []
+    result: null
 
   - desc: '5.3.5. tail() : collection'
 # Returns a collection containing all but the first

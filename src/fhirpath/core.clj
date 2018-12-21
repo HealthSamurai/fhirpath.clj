@@ -38,10 +38,6 @@
     (visitIndexerExpression [^FHIRPathParser$IndexerExpressionContext ctx]
       (to-list (into ['fhirpath.core/fp-nth]  (proxy-super visitChildren ctx))))
 
-    (visitMembershipExpression [^FHIRPathParser$MembershipExpressionContext ctx]
-      [:member (proxy-super visitChildren ctx)]
-      )
-
     (visitLiteralTerm [^FHIRPathParser$LiteralTermContext ctx]
       (first (proxy-super visitChildren ctx)))
 
@@ -50,7 +46,6 @@
       (to-list (into ['fhirpath.core/fp-eq] (proxy-super visitChildren ctx)))
 
       )
-    ;; (visitAdditiveExpression [^FHIRPathParser$AdditiveExpressionContext ctx])
     ;; (visitAndExpression [^FHIRPathParser$AndExpressionContext ctx])
     ;; (visitBooleanLiteral [^FHIRPathParser$BooleanLiteralContext ctx])
     ;; (visitDateTimeLiteral [^FHIRPathParser$DateTimeLiteralContext ctx])
@@ -80,9 +75,26 @@
     (visitFunctn [^FHIRPathParser$FunctnContext ctx]
       (proxy-super visitChildren ctx))
 
-    ;; (visitImpliesExpression [^FHIRPathParser$ImpliesExpressionContext ctx])
-    ;; (visitMultiplicativeExpression [^FHIRPathParser$MultiplicativeExpressionContext ctx])
-    ;; (visitNullLiteral [^FHIRPathParser$NullLiteralContext ctx])
+    (visitImpliesExpression [^FHIRPathParser$ImpliesExpressionContext ctx]
+      (assert false))
+
+    (visitMembershipExpression [^FHIRPathParser$MembershipExpressionContext ctx]
+      (assert false))
+
+    (visitAdditiveExpression [^FHIRPathParser$AdditiveExpressionContext ctx]
+      (to-list
+       (into [(symbol (str "fhirpath.core/fp-" (.getText (.getChild ctx 1))))]
+             (proxy-super visitChildren ctx))))
+
+    (visitMultiplicativeExpression [^FHIRPathParser$MultiplicativeExpressionContext ctx]
+      (let [op (.getText (.getChild ctx 1))
+            op (if (= op "/") "division" op)]
+        (to-list
+         (into [(symbol (str "fhirpath.core/fp-" op))]
+               (proxy-super visitChildren ctx)))))
+
+    (visitNullLiteral [^FHIRPathParser$NullLiteralContext ctx]
+      nil)
 
     (visitInequalityExpression [^FHIRPathParser$InequalityExpressionContext ctx]
       (to-list (into ['fhirpath.core/fp-ineq
@@ -91,16 +103,13 @@
 
     (visitNumberLiteral [^FHIRPathParser$NumberLiteralContext ctx]
       (Float/parseFloat (.getText (.NUMBER ctx))))
-    ;; (visitOrExpression [^FHIRPathParser$OrExpressionContext ctx])
+
+    (visitOrExpression [^FHIRPathParser$OrExpressionContext ctx]
+      (assert false))
 
     (visitParenthesizedTerm [^FHIRPathParser$ParenthesizedTermContext ctx]
-      [:parent (proxy-super visitChildren ctx)]
-      )
-    ;; (visitPluralDateTimePrecision [^FHIRPathParser$PluralDateTimePrecisionContext ctx])
-    ;; (visitPolarityExpression [^FHIRPathParser$PolarityExpressionContext ctx])
-    ;; (visitQualifiedIdentifier [^FHIRPathParser$QualifiedIdentifierContext ctx])
-    ;; (visitQuantity [^FHIRPathParser$QuantityContext ctx])
-    ;; (visitQuantityLiteral [^FHIRPathParser$QuantityLiteralContext ctx])
+      (assert false))
+
 
     (visitStringLiteral [^FHIRPathParser$StringLiteralContext ctx]
       (str/replace (.getText (.STRING ctx))
@@ -109,15 +118,20 @@
       'identity
       )
     
-    ;; (visitTimeLiteral [^FHIRPathParser$TimeLiteralContext ctx])
-    ;; (visitTypeExpression [^FHIRPathParser$TypeExpressionContext ctx])
-    ;; (visitTypeSpecifier [^FHIRPathParser$TypeSpecifierContext ctx])
 
     (visitUnionExpression [^FHIRPathParser$UnionExpressionContext ctx]
       (to-list (into ['fhirpath.core/fp-union] (proxy-super visitChildren ctx)))
       )
 
     ;; (visitUnit [^FHIRPathParser$UnitContext ctx])
+    ;; (visitTimeLiteral [^FHIRPathParser$TimeLiteralContext ctx])
+    ;; (visitTypeExpression [^FHIRPathParser$TypeExpressionContext ctx])
+    ;; (visitTypeSpecifier [^FHIRPathParser$TypeSpecifierContext ctx])
+    ;; (visitPluralDateTimePrecision [^FHIRPathParser$PluralDateTimePrecisionContext ctx])
+    ;; (visitPolarityExpression [^FHIRPathParser$PolarityExpressionContext ctx])
+    ;; (visitQualifiedIdentifier [^FHIRPathParser$QualifiedIdentifierContext ctx])
+    ;; (visitQuantity [^FHIRPathParser$QuantityContext ctx])
+    ;; (visitQuantityLiteral [^FHIRPathParser$QuantityLiteralContext ctx])
 
     ))
 
@@ -178,7 +192,9 @@
           (recur (into res more) more))))))
 
 (defn seqy [s]
-  (if (sequential? s) s (if (nil? s) [] [s])))
+  (if (sequential? s)
+    (vec s)
+    (if (nil? s) [] [s])))
 
 
 (defn fp-ofType [s tp]
@@ -207,10 +223,6 @@
   (if (and (number? a) (number? b))
     (op a b)
     false))
-
-(defn fp-union [a b]
-  (dedupe
-   (into (or a []) b)))
 
 (defn fp-empty [s]
   (if (sequential? s)
@@ -256,9 +268,6 @@
       (not (nil? (some false? s))))))
 
 (defn fp-subsetOf [s m]
-  (println ">>>>subsetof"
-           (into #{} (seqy s))
-           (into #{} (seqy m)))
   (clojure.set/subset? (into #{} (seqy s))
                        (into #{} (seqy m))))
 
@@ -276,7 +285,87 @@
 
 
 (defn fp-distinct [s]
-  (dedupe (seqy s)))
+  (into [] (distinct (seqy s))))
+
+(defn fp-single [s]
+  (if (sequential? s)
+    (cond
+      (empty? s) nil
+      (= 1 (count s)) (first s)
+      :else {:$status "error" :$error "Expected single"})
+    s))
+
+(defn fp-first [s]
+  (first (seqy s)))
+
+(defn fp-last [s]
+  (last (seqy s)))
+
+(defn fp-tail [s]
+  (rest (seqy s)))
+
+(defn fp-skip [s n]
+  (drop (int n) (seqy s)))
+
+(defn fp-union [a b]
+  (vec
+   (distinct
+    (into (seqy a)
+          (seqy b)))))
+
+(defn fp-combine [a b]
+  (into (seqy a) (seqy b)))
+
+
+(defn fp-* [a b]
+  (cond
+    (and  (number? a) (number? b)) (* a b)
+    :else nil))
+
+(defn fp-division
+  [a b]
+  (cond
+    (and  (number? a) (number? b)) (/ (float a) b)
+    :else nil))
+
+
+(defn fp-+ [a b]
+  (cond
+    (and  (number? a) (number? b)) (+ a b)
+    (and  (string? a) (string? b)) (str a b)
+    :else nil))
+
+(defn fp-& [a b]
+  (let [a (if (and (sequential? a) (empty? a)) "" a)
+        b (if (and (sequential? b) (empty? b)) "" b)]
+    (cond
+      (and  (string? a) (string? b)) (str a b)
+      :else nil)))
+
+
+(defn fp-- [a b]
+  (cond
+    (and  (number? a) (number? b)) (- a b)
+    :else nil))
+
+(defn fp-div [a b]
+  (cond
+    (and  (number? a) (number? b)) (int (/ a b))
+    :else nil))
+
+(defn fp-mod [a b]
+  (cond
+    (and  (number? a) (number? b)) (mod a b)
+    :else nil))
+
+
+
+
+
+;; (parse "1 * 2")
+
+;; (fp "1 * 2" {})
+
 
 ;; (parse "a.exists(a = 1)")
 ;; (parse "Functions.coll1[0]")

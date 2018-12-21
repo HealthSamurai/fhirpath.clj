@@ -143,9 +143,33 @@
   (sut/fp "collfalse.attr.isDistinct()" {:collfalse [{:attr false}
                                                      {:attr false}]})
 
-  (do-test "cases/5.2_filtering_and_projection.yaml")
 
   (do-test "cases/5.1_existence.yaml")
+  (do-test "cases/5.2_filtering_and_projection.yaml")
+  (do-test "cases/5.2.3_repeat.yaml")
+  (do-test "cases/5.3_subsetting.yaml")
+
+  (is (= [1 2 3 4 5]
+         (sut/fp "a | b" {:a [1 2 3 3]
+                          :b [4 5 5]})))
+  
+
+  (is (= [1 2 3 3 4 5 5]
+         (sut/fp "a.combine(b)" {:a [1 2 3 3]
+                                 :b [4 5 5]})))
+  
+
+  (def cdata (:subject (load-case "cases/5.4_combining.yaml")))
+
+  (sut/fp 
+   "Functions.attrdouble | Functions.coll1.coll2.attr"
+   cdata)
+
+  (do-test "cases/5.4_combining.yaml")
+  (do-test "cases/6.6_math.yaml")
+
+
+  
 
   
   )
