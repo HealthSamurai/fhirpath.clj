@@ -176,6 +176,14 @@
 
 
   (is (= 1 (sut/fp "%v.a" {} {:v {:a 1}})))
+
+
+  (do-test "cases/5.6_string_manipulation.yaml")
+  (do-test "cases/5.7_tree_navigation.yaml")
   (do-test "cases/8_variables.yaml")
 
   )
+
+
+
+

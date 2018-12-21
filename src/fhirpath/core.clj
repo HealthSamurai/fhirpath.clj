@@ -34,7 +34,7 @@
 
 
     (visitIdentifier [^FHIRPathParser$IdentifierContext ctx]
-      (keyword (.getText (.getSymbol (.IDENTIFIER ctx)))))
+      (keyword (.getText ctx)))
 
 
     (visitTermExpression [^FHIRPathParser$TermExpressionContext ctx]
@@ -111,13 +111,6 @@
     (visitBooleanLiteral [^FHIRPathParser$BooleanLiteralContext ctx]
       (= "true" (.getText ctx)))
 
-    (visitOrExpression [^FHIRPathParser$OrExpressionContext ctx]
-      (assert false))
-
-    (visitParenthesizedTerm [^FHIRPathParser$ParenthesizedTermContext ctx]
-      (assert false))
-
-
     (visitStringLiteral [^FHIRPathParser$StringLiteralContext ctx]
       (str/replace (.getText (.STRING ctx))
                    #"(^'|'$)" ""))
@@ -144,6 +137,13 @@
     ;; (visitQualifiedIdentifier [^FHIRPathParser$QualifiedIdentifierContext ctx])
     ;; (visitQuantity [^FHIRPathParser$QuantityContext ctx])
     ;; (visitQuantityLiteral [^FHIRPathParser$QuantityLiteralContext ctx])
+
+    (visitOrExpression [^FHIRPathParser$OrExpressionContext ctx]
+      (assert false))
+
+    (visitParenthesizedTerm [^FHIRPathParser$ParenthesizedTermContext ctx]
+      (assert false))
+
 
     ))
 
@@ -368,6 +368,15 @@
 (defn fp-toString [x]
   (str x))
 
+(defn singl [x]
+  (if (sequential? x) (first x) x))
+
+(defn fp-indexOf [x s]
+  (let [x (singl x)]
+    (when (string? x)
+      (let [res (str/index-of x s)]
+        (if (nil? res) -1 res)))))
+
 (defn parse [s]
   (let [lexer  (FHIRPathLexer. (CharStreams/fromString s))
         tokens (CommonTokenStream. lexer)
@@ -379,12 +388,76 @@
 (defn compile [expr]
   (eval (parse expr)))
 
+(defn fp-substring [s & [i j]]
+  (let [s (singl s)]
+    (when (string? s)
+      (if (and i j)
+        (when (and (< i j) (let [l (count s)] (and (< -1 i l) (< -1 (+ i j) l))))
+          (subs s i (+ i j)))
+        (when (< i (count s))
+          (subs s i)))))
+  #_(try
+    
+    (catch Exception e
+      (assert false (pr-str e s i j)))))
+(defn fp-startsWith [s ss]
+  (let [s (singl s)]
+    (when (string? s)
+      (str/starts-with? s ss))))
+
+(defn fp-endsWith [s ss]
+  (let [s (singl s)]
+    (when (string? s)
+      (str/ends-with? s ss))))
+
+(defn fp-contains [s ss]
+  (let [s (singl s)]
+    (when (string? s)
+      (str/includes? s ss))))
+
+(defn fp-replace [s ss r]
+  (let [s (singl s)]
+    (when (string? s)
+      (str/replace s ss r))))
+
+(defn fp-matches [s ss]
+  (let [s (singl s)]
+    (when (string? s)
+      (not (nil? (re-matches (re-pattern ss) s))))))
+
+(defn fp-replaceMatches [s ss r]
+  (let [s (singl s)]
+    (when (string? s)
+      (str/replace s (re-pattern ss) r))))
+
+(defn fp-length [s]
+  (let [s (singl s)]
+    (when (string? s)
+      (count s))))
+
+(defn fp-children [s]
+  (filterv
+   #(not (nil? %))
+   (cond (map? s)
+         (mapcat seqy (vals s))
+         (sequential? s)
+         (vec (mapcat #(seqy (fp-children %)) s)))))
+
+(defn fp-descendants [s]
+  (let [ch (fp-children s)]
+    (into ch (mapcat #(seqy (fp-descendants %)) ch))))
+
+(fp-descendants {:a [{:e 1 :d 20}] :b 2 :c 3})
+
+(fp-descendants {:a [{:b 1 :c [{:d 1}]}]})
+
 (defn fp [expr data & [env]]
   (if env
     ((compile expr) data env)
     ((compile expr) data)))
 
-(parse "Functions.coll1[0].a.count().take(10)")
+
+(parse "Functions.coll1[0].a.take(10).where(use= 'ok').subs(1)")
 
 ;; (type (fp "101.99" {}))
 
