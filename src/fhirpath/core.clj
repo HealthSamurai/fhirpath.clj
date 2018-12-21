@@ -130,8 +130,10 @@
 
     (visitExternalConstantTerm [^FHIRPathParser$ExternalConstantTermContext ctx]
       ;; (to-list (into ['fhirpath.core/fp-union] (proxy-super visitChildren ctx)))
-      (let [var (keyword (subs (.getText ctx) 1))]
-        (list 'get '**env var)))
+      (let [var (subs (.getText ctx) 1)
+            local-var (str "localvar-" var)]
+        (list 'or (list 'var-get (symbol local-var))
+            (list 'get '**env (keyword var)))))
 
     ;; (visitDateTimeLiteral [^FHIRPathParser$DateTimeLiteralContext ctx])
     ;; (visitDateTimePrecision [^FHIRPathParser$DateTimePrecisionContext ctx])
@@ -384,7 +386,7 @@
     ((compile expr) data env)
     ((compile expr) data)))
 
-(parse "Functions.coll1[0].a.count().take(10)")
+(parse "%var.a")
 
 ;; (type (fp "101.99" {}))
 
