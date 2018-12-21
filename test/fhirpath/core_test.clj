@@ -154,12 +154,10 @@
   (is (= [1 2 3 4 5]
          (sut/fp "a | b" {:a [1 2 3 3]
                           :b [4 5 5]})))
-  
 
   (is (= [1 2 3 3 4 5 5]
          (sut/fp "a.combine(b)" {:a [1 2 3 3]
                                  :b [4 5 5]})))
-  
 
   (def cdata (:subject (load-case "cases/5.4_combining.yaml")))
 
@@ -180,8 +178,4 @@
   (is (= 1 (sut/fp "%v.a" {} {:v {:a 1}})))
   (do-test "cases/8_variables.yaml")
 
-
-  
-
-  
   )

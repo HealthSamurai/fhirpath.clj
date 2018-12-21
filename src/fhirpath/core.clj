@@ -12,6 +12,11 @@
 (defn to-list [x]
   (apply list x))
 
+(defn seqy [s]
+  (if (sequential? s)
+    (vec s)
+    (if (nil? s) [] [s])))
+
 (defn- make-visitor []
   (proxy [FHIRPathBaseVisitor] []
     (aggregateResult [a b]
@@ -104,9 +109,7 @@
       (read-string (.getText (.NUMBER ctx))))
 
     (visitBooleanLiteral [^FHIRPathParser$BooleanLiteralContext ctx]
-      (if (= "true" (.getText ctx))
-        true
-        false))
+      (= "true" (.getText ctx)))
 
     (visitOrExpression [^FHIRPathParser$OrExpressionContext ctx]
       (assert false))
@@ -118,21 +121,20 @@
     (visitStringLiteral [^FHIRPathParser$StringLiteralContext ctx]
       (str/replace (.getText (.STRING ctx))
                    #"(^'|'$)" ""))
+
     (visitThisInvocation [^FHIRPathParser$ThisInvocationContext ctx]
-      'identity
-      )
-    
+      'identity)
 
     (visitUnionExpression [^FHIRPathParser$UnionExpressionContext ctx]
-      (to-list (into ['fhirpath.core/fp-union] (proxy-super visitChildren ctx)))
-      )
+      (to-list (into ['fhirpath.core/fp-union] (proxy-super visitChildren ctx))))
 
-    ;; (visitDateTimeLiteral [^FHIRPathParser$DateTimeLiteralContext ctx])
-    ;; (visitDateTimePrecision [^FHIRPathParser$DateTimePrecisionContext ctx])
     (visitExternalConstantTerm [^FHIRPathParser$ExternalConstantTermContext ctx]
       ;; (to-list (into ['fhirpath.core/fp-union] (proxy-super visitChildren ctx)))
       (let [var (keyword (subs (.getText ctx) 1))]
         (list 'get '**env var)))
+
+    ;; (visitDateTimeLiteral [^FHIRPathParser$DateTimeLiteralContext ctx])
+    ;; (visitDateTimePrecision [^FHIRPathParser$DateTimePrecisionContext ctx])
     ;; (visitUnit [^FHIRPathParser$UnitContext ctx])
     ;; (visitTimeLiteral [^FHIRPathParser$TimeLiteralContext ctx])
     ;; (visitTypeExpression [^FHIRPathParser$TypeExpressionContext ctx])
@@ -196,12 +198,6 @@
         (if (and more (empty? more))
           res
           (recur (into res more) more))))))
-
-(defn seqy [s]
-  (if (sequential? s)
-    (vec s)
-    (if (nil? s) [] [s])))
-
 
 (defn fp-ofType [s tp]
   (let [v (seqy s)]
