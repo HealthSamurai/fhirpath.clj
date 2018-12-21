@@ -24,53 +24,44 @@
            (filterv #(not (nil? %)))))
 
     (visitInvocationExpression [^FHIRPathParser$InvocationExpressionContext ctx]
-      (to-list (into ['->] (proxy-super visitChildren ctx))))
+      `(->  ~@(proxy-super visitChildren ctx)))
 
     (visitInvocationTerm [^FHIRPathParser$InvocationTermContext ctx]
-      (to-list (into ['-> 'doc] (proxy-super visitChildren ctx))))
+      `(-> ~'doc ~@(proxy-super visitChildren ctx)))
 
     (visitMemberInvocation [^FHIRPathParser$MemberInvocationContext ctx]
-      (to-list (into ['fhirpath.core/fp-get] (proxy-super visitChildren ctx))))
-
+      `(fp-get ~@(proxy-super visitChildren ctx)))
 
     (visitIdentifier [^FHIRPathParser$IdentifierContext ctx]
       (keyword (.getText ctx)))
-
 
     (visitTermExpression [^FHIRPathParser$TermExpressionContext ctx]
       (first (seqy (proxy-super visitChildren ctx))))
 
     (visitIndexerExpression [^FHIRPathParser$IndexerExpressionContext ctx]
-      (to-list (into ['fhirpath.core/fp-nth]  (proxy-super visitChildren ctx))))
+      `(fp-nth ~@(proxy-super visitChildren ctx)))
 
     (visitLiteralTerm [^FHIRPathParser$LiteralTermContext ctx]
       (first (seqy (proxy-super visitChildren ctx))))
 
     (visitEqualityExpression [^FHIRPathParser$EqualityExpressionContext ctx]
-      (to-list (into ['fhirpath.core/fp-eq] (proxy-super visitChildren ctx))))
+      `(fp-eq ~@(proxy-super visitChildren ctx)))
 
     (visitAndExpression [^FHIRPathParser$AndExpressionContext ctx]
-      (to-list (into ['fhirpath.core/fp-and] (proxy-super visitChildren ctx))))
+      `(fp-and ~@(proxy-super visitChildren ctx)))
 
     (visitFunctionInvocation [^FHIRPathParser$FunctionInvocationContext ctx]
       (let [[fn-name & params :as call] (first (proxy-super visitChildren ctx))]
-        (cond
-          (contains? #{:ofType} fn-name)
-          (to-list [(symbol (str "fhirpath.core/fp-" (name fn-name)))
-                    (last (last (ffirst params)))])
-
-
-          (contains? #{:iif} fn-name)
-          (if-let [lambdas  (mapv (fn [l] (to-list ['fn ['doc] l])) (first params))]
-            (to-list (into [(symbol (str "fhirpath.core/fp-" (name fn-name)))] lambdas))
-            (to-list [(symbol (str "fhirpath.core/fp-" (name fn-name)))]))
-          (contains? #{:where :select :repeat :exists :all} fn-name)
-          (if-let [lambda  (ffirst params)]
-            (to-list [(symbol (str "fhirpath.core/fp-" (name fn-name)))
-                      (to-list ['fn ['doc] lambda])])
-            (to-list [(symbol (str "fhirpath.core/fp-" (name fn-name)))]))
-          :else
-          (to-list (into [(symbol (str "fhirpath.core/fp-" (name fn-name)))] (first params))))))
+        (let [qfn-name (symbol (str "fhirpath.core/fp-" (name fn-name)))]
+          (cond
+            (contains? #{:ofType} fn-name)
+            `(~qfn-name ~(last (last (ffirst params))))
+            
+            (contains? #{:iif :where :select :repeat :exists :all} fn-name)
+            (let [lambdas  (mapv (fn [l] `(fn [~'doc] ~l)) (first params))]
+              `(~qfn-name ~@lambdas))
+            :else
+            `(~qfn-name ~@(first params))))))
 
     (visitParamList [^FHIRPathParser$ParamListContext ctx]
       (proxy-super visitChildren ctx))
@@ -86,24 +77,22 @@
       (assert false))
 
     (visitAdditiveExpression [^FHIRPathParser$AdditiveExpressionContext ctx]
-      (to-list
-       (into [(symbol (str "fhirpath.core/fp-" (.getText (.getChild ctx 1))))]
-             (proxy-super visitChildren ctx))))
+      `(~(symbol (str "fhirpath.core/fp-" (.getText (.getChild ctx 1))))
+        ~@(proxy-super visitChildren ctx)))
 
     (visitMultiplicativeExpression [^FHIRPathParser$MultiplicativeExpressionContext ctx]
       (let [op (.getText (.getChild ctx 1))
-            op (if (= op "/") "division" op)]
-        (to-list
-         (into [(symbol (str "fhirpath.core/fp-" op))]
-               (proxy-super visitChildren ctx)))))
+            op (if (= op "/") "division" op)
+            qfn (symbol (str "fhirpath.core/fp-" op))]
+        `(~qfn ~@(proxy-super visitChildren ctx))))
 
     (visitNullLiteral [^FHIRPathParser$NullLiteralContext ctx]
       nil)
 
     (visitInequalityExpression [^FHIRPathParser$InequalityExpressionContext ctx]
-      (to-list (into ['fhirpath.core/fp-ineq
-                      (symbol (.getText (.getChild ctx 1)))]
-                     (proxy-super visitChildren ctx))))
+      `(fp-ineq
+        ~(symbol (.getText (.getChild ctx 1)))
+        ~@(proxy-super visitChildren ctx)))
 
     (visitNumberLiteral [^FHIRPathParser$NumberLiteralContext ctx]
       (read-string (.getText (.NUMBER ctx))))
@@ -112,14 +101,13 @@
       (= "true" (.getText ctx)))
 
     (visitStringLiteral [^FHIRPathParser$StringLiteralContext ctx]
-      (str/replace (.getText (.STRING ctx))
-                   #"(^'|'$)" ""))
+      (str/replace (.getText (.STRING ctx)) #"(^'|'$)" ""))
 
     (visitThisInvocation [^FHIRPathParser$ThisInvocationContext ctx]
       'identity)
 
     (visitUnionExpression [^FHIRPathParser$UnionExpressionContext ctx]
-      (to-list (into ['fhirpath.core/fp-union] (proxy-super visitChildren ctx))))
+      `(fp-union ~@(proxy-super visitChildren ctx)))
 
     (visitExternalConstantTerm [^FHIRPathParser$ExternalConstantTermContext ctx]
       (let [var (subs (.getText ctx) 1)
@@ -144,8 +132,6 @@
 
     (visitParenthesizedTerm [^FHIRPathParser$ParenthesizedTermContext ctx]
       (assert false))
-
-
     ))
 
 (defn fp-take [subj num]
@@ -462,9 +448,7 @@
 (parse "%var.a")
 
 
-(fp
- "%varo.a"
- {:varo 1})
+(fp "%varo.a" {} {:varo {:a 1}})
 
 ;; (type (fp "101.99" {}))
 
