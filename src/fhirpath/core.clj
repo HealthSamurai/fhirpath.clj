@@ -110,10 +110,11 @@
       `(fp-union ~@(proxy-super visitChildren ctx)))
 
     (visitExternalConstantTerm [^FHIRPathParser$ExternalConstantTermContext ctx]
-      (let [var (subs (.getText ctx) 1)
-            local-var (str "localvar-" var)]
-        ;; `(or (var-get ~(symbol local-var)))
-        `(get ~'**env ~(keyword var))))
+      (let [v (subs (.getText ctx) 1)
+            v (if (str/starts-with? v "\"")
+                (str/replace v #"\"" "")
+                v)]
+        `(get ~'**env ~(keyword v))))
 
     ;; (visitDateTimeLiteral [^FHIRPathParser$DateTimeLiteralContext ctx])
     ;; (visitDateTimePrecision [^FHIRPathParser$DateTimePrecisionContext ctx])
@@ -378,15 +379,13 @@
 (defn fp-substring [s & [i j]]
   (let [s (singl s)]
     (when (string? s)
-      (if (and i j)
-        (when (and (< i j) (let [l (count s)] (and (< -1 i l) (< -1 (+ i j) l))))
-          (subs s i (+ i j)))
-        (when (< i (count s))
-          (subs s i)))))
-  #_(try
-    
-    (catch Exception e
-      (assert false (pr-str e s i j)))))
+      (let [l (count s)]
+        (if (and i j)
+          (when (and (< -1 i l))
+            (subs s i (min l (+ i j))))
+          (when (< i l)
+            (subs s i)))))))
+
 (defn fp-startsWith [s ss]
   (let [s (singl s)]
     (when (string? s)
@@ -405,7 +404,7 @@
 (defn fp-replace [s ss r]
   (let [s (singl s)]
     (when (string? s)
-      (str/replace s ss r))))
+      (str/replace s (re-pattern ss) r))))
 
 (defn fp-matches [s ss]
   (let [s (singl s)]
@@ -434,21 +433,18 @@
   (let [ch (fp-children s)]
     (into ch (mapcat #(seqy (fp-descendants %)) ch))))
 
-(fp-descendants {:a [{:e 1 :d 20}] :b 2 :c 3})
+;; (fp-descendants {:a [{:e 1 :d 20}] :b 2 :c 3})
 
-(fp-descendants {:a [{:b 1 :c [{:d 1}]}]})
+;; (fp-descendants {:a [{:b 1 :c [{:d 1}]}]})
 
 (defn fp [expr data & [env]]
-  (if env
-    ((compile expr) data env)
-    ((compile expr) data)))
+  ((compile expr) data (assoc (or env {}) :context data)))
 
 
-(parse "Functions.coll1[0].a.take(10).where(use= 'ok').subs(1)")
-(parse "%var.a")
+;; (parse "Functions.coll1[0].a.take(10).where(use= 'ok').subs(1)")
+;; (parse "%var.a")
 
-
-(fp "%varo.a" {} {:varo {:a 1}})
+;; (fp "%varo.a" {} {:varo {:a 1}})
 
 ;; (type (fp "101.99" {}))
 

@@ -100,7 +100,7 @@ tests:
   - desc: '** surround'
     expression: Functions.str.attr.replace('', 'x')
     disable: true
-    result: 'xtxexsxtx xsxtxrxixnxg'
+    result: 'xtxexsxtx xsxtxrxixnxgx'
 
   - desc: '5.6.7. matches(regex : string) : boolean'
 # If the input collection contains a single item of type string, the function will return true when the value matches the given regular expression. Regular expressions should function consistently, regardless of any culture- and locale-specific settings in the environment, should be case-sensitive, use 'single line' mode and allow Unicode characters.
@@ -123,7 +123,7 @@ tests:
     result: 'match string'
 
   - desc: '** replaceMatches 2'
-    expression: Functions.str.date.replace('\\b(?<month>\\d{1,2})/(?<day>\\d{1,2})/(?<year>\\d{2,4})\\b', '${day}-${month}-${year}')
+    expression: "Functions.str.date.replace('\\b(?<month>\\d{1,2})/(?<day>\\d{1,2})/(?<year>\\d{2,4})\\b', '${day}-${month}-${year}')"
     disable: true
     result: '30-11-1972'
 

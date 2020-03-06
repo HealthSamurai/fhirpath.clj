@@ -2,9 +2,8 @@
   (:require [fhirpath.core :as sut]
             [clj-yaml.core :as yaml]
             [clojure.test :refer :all]
-            [clojure.java.io :as io]))
-
-
+            [clojure.java.io :as io]
+            [clojure.string :as str]))
 
 (deftest basic-tests
 
@@ -45,10 +44,10 @@
 
 
 (defn load-case [path]
-  (yaml/parse-string (slurp (io/resource path))))
+  (yaml/parse-string (slurp (io/resource (str "fhirpath/" path)))))
 
 (defn do-test [path]
-  (let [data (load-case path)]
+  (let [data (load-case (str path))]
     (doseq [t (:tests data)]
       (println (:desc t))
       (println "EXPR=>" (:expression t))
@@ -172,15 +171,33 @@
   (is (= 4 (sut/fp "a.iif(b = 3, 4, 5 )" {:a {:b 3}})))
   (is (= 5 (sut/fp "a.iif(b = 3, 4, 5 )" {:a {:b 4}})))
 
+  (sut/fp "attr.substring(2, 1)" {:attr "abcdefg"})
+
+  (is (= "cdefg"
+         (sut/fp "attr.substring(2, 5555)" {:attr "abcdefg"})))
+  
+
+  (sut/fp "attr.replace('', 'x')", {:attr "abc"})
+
+  (sut/fp "attr.replace('\\b(?<month>\\d{1,2})/(?<day>\\d{1,2})/(?<year>\\d{2,4})\\b', '${day}-${month}-${year}')",
+          {:attr "11/30/1972"})
+
+
   (do-test "cases/6.6_math.yaml")
 
 
   (is (= 1 (sut/fp "%v.a" {} {:v {:a 1}})))
 
+  (sut/fp "%v.a" {} {:v {:a 1}})
+
 
   (do-test "cases/5.6_string_manipulation.yaml")
   (do-test "cases/5.7_tree_navigation.yaml")
   (do-test "cases/8_variables.yaml")
+  (do-test "cases/6.6_math.yaml")
+  ;; (do-test "cases/6.1_equality.yaml")
+
+  ;; (do-test "cases/6.5_boolean_logic.yaml")
 
   )
 

@@ -1,5 +1,6 @@
-{:paths ["src" "parser" "parser/antlr-4.7.2-complete.jar" "test"]
- :deps {exoscale/clj-yaml {:mvn/version "0.5.6"}}
+{:paths ["src" "parser" "test"]
+ :deps {clj-commons/clj-yaml           {:mvn/version "0.7.0"}
+        org.antlr/antlr4-runtime       {:mvn/version "4.7.2"}}
 
  :aliases
  {:nrepl
@@ -8,8 +9,9 @@
    {spyscope                      {:mvn/version "0.1.6"}
     org.clojure/clojure           {:mvn/version "1.10.0-RC4"}
     org.clojure/tools.nrepl       {:mvn/version "0.2.13"}
-    cider/cider-nrepl             {:mvn/version "0.19.0-SNAPSHOT"}
-    refactor-nrepl/refactor-nrepl {:mvn/version "2.4.0-SNAPSHOT"}}
+    cider/cider-nrepl             {:mvn/version "0.22.3"}
+    refactor-nrepl/refactor-nrepl {:mvn/version "2.4.0"}
+    zprint {:mvn/version "0.5.3"}}
    :jvm-opts ^:replace ["-XX:-OmitStackTraceInFastThrow"]}
 
   :test {:extra-paths ["test"]}
