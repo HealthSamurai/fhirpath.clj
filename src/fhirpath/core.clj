@@ -183,7 +183,7 @@
     (loop [res init 
            work init]
       (let [more (fp-select work f)]
-        (if (and more (empty? more))
+        (if (or (and more (empty? more)) (= more init))
           res
           (recur (into res more) more))))))
 
