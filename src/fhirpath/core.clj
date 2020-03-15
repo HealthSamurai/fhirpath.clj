@@ -433,12 +433,20 @@
   (let [ch (fp-children s)]
     (into ch (mapcat #(seqy (fp-descendants %)) ch))))
 
+(defn fp-trace [s a] s)
+
 ;; (fp-descendants {:a [{:e 1 :d 20}] :b 2 :c 3})
 
 ;; (fp-descendants {:a [{:b 1 :c [{:d 1}]}]})
 
 (defn fp [expr data & [env]]
   ((compile expr) data (assoc (or env {}) :context data)))
+
+(defn fp-today [s]
+  (.format (java.time.LocalDate/now) java.time.format.DateTimeFormatter/ISO_LOCAL_DATE))
+
+(defn fp-now [s]
+  (.format (java.time.ZonedDateTime/now) java.time.format.DateTimeFormatter/ISO_OFFSET_DATE_TIME))
 
 
 ;; (parse "Functions.coll1[0].a.take(10).where(use= 'ok').subs(1)")

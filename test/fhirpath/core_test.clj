@@ -61,6 +61,12 @@
                    "\n"
                    (:result t) "!=" res)))))))
 
+(defn parse-local [date]
+   (java.time.LocalDate/parse date java.time.format.DateTimeFormatter/ISO_LOCAL_DATE))
+
+(defn parse-zoned [date]
+   (java.time.ZonedDateTime/parse date java.time.format.DateTimeFormatter/ISO_OFFSET_DATE_TIME))
+
 (deftest fhipath-tests
   (do-test "cases/4.1_literals.yaml")
 
@@ -193,6 +199,18 @@
 
   (do-test "cases/5.6_string_manipulation.yaml")
   (do-test "cases/5.7_tree_navigation.yaml")
+  (do-test "cases/5.8_utility_functions.yaml")
+
+  (println (apply str (repeat 80 "=")))
+
+  (is (= (java.time.LocalDate/now)
+         (parse-local (sut/fp "Functions.today()" {}))))
+
+  (is (>= 1
+         (.between java.time.temporal.ChronoUnit/SECONDS
+                   (java.time.ZonedDateTime/now)
+                   (parse-zoned (sut/fp "Functions.now()" {})))))
+
   (do-test "cases/8_variables.yaml")
   (do-test "cases/6.6_math.yaml")
   ;; (do-test "cases/6.1_equality.yaml")
