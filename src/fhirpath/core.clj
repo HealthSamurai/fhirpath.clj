@@ -154,8 +154,9 @@
 
 (defn fp-eq [a b]
   (cond
-    (and (number? a) (number? b))
-    (= (double b) (double a))
+    (and (number? a) (number? b)) (= (double b) (double a))
+    (or (nil? a) (nil? b)) '()
+    (and (string? a) (string? b)) (= (str a) (str b))
     :else (= a b)))
 
 (defn fp-subs [s a b]
