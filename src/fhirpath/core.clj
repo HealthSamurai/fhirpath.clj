@@ -45,7 +45,15 @@
       (first (seqy (proxy-super visitChildren ctx))))
 
     (visitEqualityExpression [^FHIRPathParser$EqualityExpressionContext ctx]
-      `(fp-eq ~@(proxy-super visitChildren ctx)))
+      (let [op-str (.getText (.getChild ctx 1))
+            op (case op-str
+                  "=" =
+                  "!=" not=
+                  "~" #() ; FIXME: TBD
+                  "!~" #())] ; FIXME: TBD
+        `(fp-eq
+           ~op
+           ~@(proxy-super visitChildren ctx))))
 
     (visitAndExpression [^FHIRPathParser$AndExpressionContext ctx]
       `(fp-and ~@(proxy-super visitChildren ctx)))
@@ -152,11 +160,11 @@
         (when (= (:resourceType subj) (name k))
           subj))))
 
-(defn fp-eq [a b]
+(defn fp-eq [op a b]
   (cond
-    (and (number? a) (number? b)) (= (double b) (double a))
+    (and (number? a) (number? b)) (op (double b) (double a))
     (or (nil? a) (nil? b)) '()
-    (and (string? a) (string? b)) (= (str a) (str b))
+    (and (string? a) (string? b)) (op (str a) (str b))
     :else (= a b)))
 
 (defn fp-subs [s a b]
