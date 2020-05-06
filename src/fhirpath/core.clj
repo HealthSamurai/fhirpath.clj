@@ -170,7 +170,7 @@
     (and (number? a) (number? b)) (op (double b) (double a))
     (or (nil? a) (nil? b)) '()
     (and (string? a) (string? b)) (op (str a) (str b))
-    :else (= a b)))
+    :else (op a b)))
 
 (defn fp-subs [s a b]
   (subs s (int a) (int b)))
