@@ -309,26 +309,26 @@ tests:
 # The inverse of the equivalent operator.
 
 
-  - desc: '* collections for equivalence { } !~ { } will result in true.'
-    expression: "Ops.unexists !~ Ops.unexists"
-    result: false
+  - desc: 'TODO* collections for equivalence { } !~ { } will result in true.'
+#    expression: "Ops.unexists !~ Ops.unexists"
+#    result: false
 
 # If both operands are collections with a single item:
 
 # For primitives
 
-  - desc: '* string: the strings must be the same while ignoring case and normalizing whitespace.'
-    expression: "'ab c' !~ 'Ab  C'"
-    result: false
+  - desc: 'TODO* string: the strings must be the same while ignoring case and normalizing whitespace.'
+#    expression: "'ab c' !~ 'Ab  C'"
+#    result: false
 
 # integer: exactly equal
 
   - desc: |
-      decimal: values must be equal, comparison is done on values rounded
+      TODO decimal: values must be equal, comparison is done on values rounded
       to the precision of the least precise operand.
       Trailing zeroes are ignored in  determining precision.
-    expression: "1.001 !~ 01.0012"
-    result: false
+#    expression: "1.001 !~ 01.0012"
+#    result: false
 
 subject:
   resourceType: Ops

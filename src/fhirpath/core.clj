@@ -49,8 +49,8 @@
             op (case op-str
                   "=" =
                   "!=" not=
-                  "~" #() ; FIXME: TBD
-                  "!~" #())] ; FIXME: TBD
+                  "~" = ; FIXME: TBD
+                  "!~" not=)] ; FIXME: TBD
         `(fp-eq
            ~op
            ~@(proxy-super visitChildren ctx))))

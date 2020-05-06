@@ -195,7 +195,7 @@
   (do-test "cases/5.7_tree_navigation.yaml")
   (do-test "cases/8_variables.yaml")
   (do-test "cases/6.6_math.yaml")
-  ;; (do-test "cases/6.1_equality.yaml")
+  (do-test "cases/6.1_equality.yaml")
 
   ;; (do-test "cases/6.5_boolean_logic.yaml")
 
