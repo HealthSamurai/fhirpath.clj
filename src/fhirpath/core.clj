@@ -86,13 +86,13 @@
 
     (visitAdditiveExpression [^FHIRPathParser$AdditiveExpressionContext ctx]
       `(~(symbol (str "fhirpath.core/fp-" (.getText (.getChild ctx 1))))
-        ~@(proxy-super visitChildren ctx)))
+        ~@(map double-to-bigdec (proxy-super visitChildren ctx))))
 
     (visitMultiplicativeExpression [^FHIRPathParser$MultiplicativeExpressionContext ctx]
       (let [op (.getText (.getChild ctx 1))
             op (if (= op "/") "division" op)
             qfn (symbol (str "fhirpath.core/fp-" op))]
-        `(~qfn ~@(proxy-super visitChildren ctx))))
+        `(~qfn ~@(map double-to-bigdec (proxy-super visitChildren ctx)))))
 
     (visitNullLiteral [^FHIRPathParser$NullLiteralContext ctx]
       nil)
@@ -142,6 +142,11 @@
     (visitParenthesizedTerm [^FHIRPathParser$ParenthesizedTermContext ctx]
       (assert false))
     ))
+
+(defn double-to-bigdec [v]
+  (if (instance? java.lang.Double v)
+    (bigdec v)
+    v))
 
 (defn fp-take [subj num]
   (take (int num) subj))
