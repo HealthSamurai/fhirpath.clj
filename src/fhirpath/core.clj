@@ -56,7 +56,6 @@
           (cond
             (contains? #{:ofType} fn-name)
             `(~qfn-name ~(last (last (ffirst params))))
-            
             (contains? #{:iif :where :select :repeat :exists :all} fn-name)
             (let [lambdas  (mapv (fn [l] `(fn [~'doc] ~l)) (first params))]
               `(~qfn-name ~@lambdas))
@@ -129,34 +128,35 @@
     ;; (visitQuantityLiteral [^FHIRPathParser$QuantityLiteralContext ctx])
 
     (visitOrExpression [^FHIRPathParser$OrExpressionContext ctx]
-      (assert false))
+      `(fp-or ~@(proxy-super visitChildren ctx)))
 
     (visitParenthesizedTerm [^FHIRPathParser$ParenthesizedTermContext ctx]
-      (assert false))
+      `(do ~@(proxy-super visitChildren ctx)))
     ))
 
 (defn fp-take [subj num]
   (take (int num) subj))
 
+(defn fp-get-one [x k]
+  (or (get x k)
+      (get x (name k))
+      (when (= (:resourceType x) (name k)) x)
+      (get x (str (name k) "Quantity"))))
+
 (defn fp-get [subj k]
-  (if (sequential? subj)
-    (->> subj
-         (reduce (fn [acc x]
-                   (let [res (and (get x k))]
-                     (if (sequential? res)
-                       (into acc res)
-                       (if (not (nil? res))
-                         (conj acc res)
-                         acc)))) []))
-    (or (get subj k)
-        (when (= (:resourceType subj) (name k))
-          subj))))
+  (->> (if (sequential? subj) subj [subj])
+       (reduce (fn [acc x]
+                 (let [res (fp-get-one x k)]
+                   (if (sequential? res)
+                     (into acc res)
+                     (if (not (nil? res))
+                       (conj acc res)
+                       acc)))) [])))
 
 (defn fp-eq [a b]
-  (cond
-    (and (number? a) (number? b))
-    (= (double b) (double a))
-    :else (= a b)))
+  (let [a (if (sequential? a) a [a])
+        b (if (sequential? b) b [b])]
+    (= a b)))
 
 (defn fp-subs [s a b]
   (subs s (int a) (int b)))
@@ -300,21 +300,27 @@
 
 
 (defn fp-* [a b]
-  (cond
-    (and  (number? a) (number? b)) (* a b)
-    :else nil))
+  (let [a (if (sequential? a) (first a) a)
+        b (if (sequential? b) (first b) b)]
+    (cond
+      (and  (number? a) (number? b)) (* (double a) b)
+      :else nil)))
 
 (defn fp-division
   [a b]
-  (cond
-    (and  (number? a) (number? b)) (/ (double a) b)
-    :else nil))
+  (let [a (if (sequential? a) (first a) a)
+        b (if (sequential? b) (first b) b)]
+    (cond
+      (and  (number? a) (number? b)) (/ (double a) b)
+      :else nil)))
 
 (defn fp-+ [a b]
-  (cond
-    (and  (number? a) (number? b)) (+ a b)
-    (and  (string? a) (string? b)) (str a b)
-    :else nil))
+  (let [a (if (sequential? a) (first a) a)
+        b (if (sequential? b) (first b) b)]
+    (cond
+      (and  (number? a) (number? b)) (+ a b)
+      (and  (string? a) (string? b)) (str a b)
+      :else nil)))
 
 (defn fp-& [a b]
   (let [a (if (and (sequential? a) (empty? a)) "" a)
@@ -324,14 +330,18 @@
       :else nil)))
 
 (defn fp-- [a b]
-  (cond
-    (and  (number? a) (number? b)) (- a b)
-    :else nil))
+  (let [a (if (sequential? a) (first a) a)
+        b (if (sequential? b) (first b) b)]
+    (cond
+      (and  (number? a) (number? b)) (- a b)
+      :else nil)))
 
 (defn fp-div [a b]
-  (cond
-    (and  (number? a) (number? b)) (int (/ a b))
-    :else nil))
+  (let [a (if (sequential? a) (first a) a)
+        b (if (sequential? b) (first b) b)]
+    (cond
+      (and  (number? a) (number? b)) (int (/ a b))
+      :else nil)))
 
 (defn fp-mod [a b]
   (cond
@@ -435,6 +445,27 @@
 
 (defn fp-trace [s a] s)
 
+(def converters
+  {["lbs" "kg"] (fn [lbs] (* lbs 0.45359237))
+   ["kgs" "kg"] (fn [k] k)
+   ["centimeters" "m"] (fn [c] (/ c 100))
+   ["feet" "m"] (fn [feet] (* feet 0.3048))
+   ["inches" "m"] (fn [inches] (* inches 0.0254))})
+
+;;TODO: implement ucum
+(defn fp-toQuantity [x unit]
+  (->> (if (sequential? x) x [x])
+       (mapv (fn [x]
+               (let [from (or (get x "unit") (get x :unit))
+                     v (or (get x "value") (get x :value))
+                     v (and v (if (string? v) (Double/parseDouble v) v))]
+                 (if (= from unit)
+                   x
+                   (do #_(println :conv x [from unit] x "->" v (get converters [from unit]))
+                     (if-let [conv (and v (get converters [from unit]))]
+                       {:value (conv v) :unit unit}
+                       {:error (str "No conversion from " from " to " unit)}))))))))
+
 ;; (fp-descendants {:a [{:e 1 :d 20}] :b 2 :c 3})
 
 ;; (fp-descendants {:a [{:b 1 :c [{:d 1}]}]})
@@ -449,10 +480,17 @@
   (.format (java.time.ZonedDateTime/now) java.time.format.DateTimeFormatter/ISO_OFFSET_DATE_TIME))
 
 
+
 ;; (parse "Functions.coll1[0].a.take(10).where(use= 'ok').subs(1)")
+
 ;; (parse "%var.a")
 
-;; (fp "%varo.a" {} {:varo {:a 1}})
+(fp "%varo.a" {} {:varo {:a 1}})
+(fp "a.b.c" {:a {:b {:c 2}}} {:varo {:a 1}})
+(fp "((%weight/%height/%height*10 +0.5) div 1)/10" {} {:weight 10 :height 10})
+(fp "((%weight/%height/%height*10 +0.5) div 1)/10" {} {:weight [10] :height [10]})
+
+(parse "((%weight/%height/%height*10 +0.5) div 1)/10")
 
 ;; (type (fp "101.99" {}))
 
