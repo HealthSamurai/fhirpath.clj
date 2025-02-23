@@ -3,7 +3,19 @@
             [clj-yaml.core :as yaml]
             [clojure.test :refer :all]
             [clojure.java.io :as io]
+            [clojure.pprint :as pp]
             [clojure.string :as str]))
+
+
+(defn normalize [x]
+  (cond
+    (map? x) (->> x (reduce (fn [acc [k v]] (assoc acc k (normalize v))) {}))
+    (sequential? x) (mapv normalize x)
+    :else x))
+
+(defn edn [x]
+  (str/trim (with-out-str (pp/pprint (normalize x)))))
+
 
 (deftest basic-tests
 
@@ -38,9 +50,9 @@
 
   )
 
-
 (defn load-case [path]
   (yaml/parse-string (slurp (io/resource (str "fhirpath/" path)))))
+
 
 (defn do-test [path]
   (let [data (load-case (str path))]
@@ -48,14 +60,27 @@
       (println (:desc t))
       (println "EXPR=>" (:expression t))
 
-      (when (:expression t)
-        (let [res (sut/fp (:expression t) (:subject data) (:variables t))]
-          (is (= (:result t) res)
-              (str
-               path
-               (:desc t) " \n'" (:expression t) "' "
-                   "\n"
-                   (:result t) "!=" res)))))))
+      (when (and (:expression t) (not (:disable t)))
+        (if (:error t)
+          (try
+            (let [res (sut/fp (:expression t) (normalize (:subject data)) (:variables t))]
+              (is false
+                  (str
+                   path "\n----\n"
+                   (:desc t) "\n"
+                   "(sut/fp " (pr-str (:expression t)) "," (edn (:subject data)) ")"
+                   "\nExpected error, but " (pr-str res)
+                   "\n")))
+            (catch Exception e (is true)))
+          (let [res (sut/fp (:expression t) (normalize (:subject data)) (:variables t))
+                res (if (nil? res) [] res)
+                exp (normalize (if (nil? (:result t)) [] (:result t)))]
+            (is (= exp res)
+                (str
+                 path "\n----\n"
+                 (:desc t) "\n"
+                 "(sut/fp " (pr-str (:expression t)) "," (edn (:subject data)) ")"))))
+        ))))
 
 (defn parse-local [date]
    (java.time.LocalDate/parse date java.time.format.DateTimeFormatter/ISO_LOCAL_DATE))
@@ -64,7 +89,6 @@
    (java.time.ZonedDateTime/parse date java.time.format.DateTimeFormatter/ISO_OFFSET_DATE_TIME))
 
 (deftest fhipath-tests
-  (do-test "cases/4.1_literals.yaml")
 
 
   (is (= [3 4 5]
@@ -142,9 +166,7 @@
 
 
 
-  (is (= [1 2 3 4 5]
-         (sut/fp "a | b" {:a [1 2 3 3]
-                          :b [4 5 5]})))
+  (is (= [1 2 3 4 5] (sut/fp "a | b" {:a [1 2 3 3] :b [4 5 5]})))
 
   (is (= [1 2 3 3 4 5 5]
          (sut/fp "a.combine(b)" {:a [1 2 3 3]
@@ -187,6 +209,14 @@
   (sut/fp "0.1 + 0.1 + 0.1 = 0.3" {})
   (sut/fp "'a' ~ 'A'" {})
 
+  ;; (sut/fp "2 >= g",{:e [], :f [1], :g [1 2]})
+
+  (sut/fp "1.001 !~ 01.0012", {})
+
+  (sut/fp "0.1 + 0.1 + 0.1 = 0.3", {})
+
+
+  (do-test "cases/4.1_literals.yaml")
   (do-test "cases/5.1_existence.yaml")
   (do-test "cases/5.2_filtering_and_projection.yaml")
   (do-test "cases/5.2.3_repeat.yaml")
@@ -197,7 +227,6 @@
   (do-test "cases/5.7_tree_navigation.yaml")
   (do-test "cases/5.8_utility_functions.yaml")
   (do-test "cases/6.1_equality.yaml")
-
   (do-test "cases/6.2_comparision.yaml")
   (do-test "cases/6.3_types.yaml")
   (do-test "cases/6.4_collection.yaml")

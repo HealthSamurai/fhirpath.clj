@@ -2,105 +2,91 @@
 
 tests:
   - desc: less than, expecting true
-    expression: a < b
+    expression: 1 < 2
     result: [true]
   - desc: less than, expecting false
-    expression: b < a
+    expression: 2 < 1
     result: [false]
   - desc: less than, with mismatched types
-    expression: c < d
+    expression: "2 < 'Hyd'"
     error: true
   - desc: less than, with empty value
-    expression: c < e
+    expression: 2 < e
     result: []
   - desc: less than, with too many values
-    expression: c < g
+    expression: 2 < g
     error: true
   - desc: less than, expecting true
-    expression: a < h
+    expression: 1 < 2.0
     result: [true]
   - desc: less than, expecting false
-    expression: j < d
+    expression: "'Oxy' < 'Hyd'"
     result: [false]
 
   - desc: greater than, expecting true
-    expression: b > a
+    expression: 2 > 1
     result: [true]
   - desc: greater than, expecting false
-    expression: a > b
+    expression: 1 > 2
     result: [false]
   - desc: greater than, with mismatched types
-    expression: d > c
+    expression: "'Hyd' > 2"
     error: true
   - desc: greater than, with empty value
-    expression: e > a
+    expression: e > 1
     result: []
   - desc: greater than, with too many values
-    expression: c > g
+    expression: 2 > g
     error: true
   - desc: greater than, expecting true
-    expression: h > a
+    expression: 2.0 > 1
     result: [true]
   - desc: greater than, expecting false
-    expression: d > j
+    expression: "'Hyd' > 'Oxy'"
     result: [false]
-
   - desc: greater or equal than, expecting true
-    expression: b >= c
+    expression: 2 >= 2
     result: [true]
   - desc: greater or equal than, expecting false
-    expression: a >= b
+    expression: 1 >= 2
     result: [false]
   - desc: greater or equal than, with mismatched types
-    expression: d >= c
+    expression: "'Hyd' >= 2"
     error: true
   - desc: greater or equal than, with empty value
-    expression: e >= a
+    expression: e >= 1
     result: []
   - desc: greater or equal than, with too many values
-    expression: c >= g
+    expression: 2 >= g
     error: true
   - desc: greater or equal than, expecting true
-    expression: c >= h
+    expression: 2 >= 2.0
     result: [true]
   - desc: greater or equal than, expecting false
-    expression: d >= j
+    expression: "'Hyd' >= 'Oxy'"
     result: [false]
 
   - desc: less or equal than, expecting true
-    expression: b <= c
+    expression: 2 <= 2
     result: [true]
   - desc: less than or equal, expecting false
-    expression: b <= a
+    expression: 2 <= 1
     result: [false]
   - desc: less or equal than, with mismatched types
-    expression: c <= d
+    expression: "2 <= 'Hyd'"
     error: true
   - desc: less or equal than, with empty value
-    expression: c <= e
+    expression: 2 <= e
     result: []
-  - desc: less than equal, with too many values
-    disable: true
-    expression: a <= h
-    error: true
   - desc: less or equal than, expecting true
-    expression: a <= h
+    expression: 1 <= 2.0
     result: [true]
   - desc: less than or equal, expecting false
-    expression: j <= d
+    expression: "'Oxy' <= 'Hyd'"
     result: [false]
 # TBD -- add more tests (date, times)
 
 subject:
-  a: 1
-  b: 2
-  c: 2
-  d: "Hydrogen"
   e: []
-  f:
-    - 1
-  g:
-    - 1
-    - 2
-  h: 2.0
-  j: "Oxygen"
+  f: [1]
+  g: [1,2]

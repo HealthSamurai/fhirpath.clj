@@ -18,7 +18,10 @@
 
 (defn pick-single [a]
   (if (sequential? a)
-    (if (= (count a) 1) (first a) nil)
+    (cond
+      (= (count a) 1)  (first a)
+      (> (count a ) 1) (throw (Exception. (str "Expected only one element, but " (pr-str a))))
+      :else [])
     a))
 
 (defn- make-visitor []
@@ -54,7 +57,7 @@
 
     (visitFunctionInvocation [^FHIRPathParser$FunctionInvocationContext ctx]
       (let [[fn-name & params :as call] (first (proxy-super visitChildren ctx))]
-        (let [qfn-name (symbol (str "fhirpath.core/fp-" (name fn-name)))]
+        (let [qfn-name (symbol (str "fhirpath.core/fp-" (name fn-name) "-fn"))]
           (cond
             (contains? #{:ofType} fn-name)
             `(~qfn-name ~(last (last (ffirst params))))
@@ -178,7 +181,7 @@
       acc
       (conj acc res))))
 
-(defn fp-take [subj num]
+(defn fp-take-fn [subj num]
   (take (int num) (seqy subj)))
 
 ;; TODO: other types
@@ -195,15 +198,21 @@
          (reduce (fn [acc x] (conjy acc (fp-get-one x k))) []))
     (fp-get-one subj k)))
 
+
+(def epsilon 0.0000000000001) ;; 1e-13
+(defn double=
+  [a b]
+  (< (Math/abs (- a b)) epsilon))
+
 (defn fp-eq [a b]
-  (if (or (and (sequential? a) (empty? a))
+  (println :eq a b (type a) (type b))
+  (cond (or (nil? a)
+          (nil? b)
+          (and (sequential? a) (empty? a))
           (and (sequential? b) (empty? b)))
     []
-    (if (or (nil? a) (nil? b))
-      []
-      (if (= a b)
-        [true]
-        [false]))))
+    (and (double? a) (double? b)) [(double= a b)]
+    :else [(= a b)]))
 
 (defn fp-not-eq [a b]
   (let [b (fp-eq a b)]
@@ -211,18 +220,33 @@
       b
       [(not (first b))])))
 
+
+(defn precision [num]
+  (if (integer? num)
+    0
+    (-> num
+        str
+        (clojure.string/split #"\.")
+        second
+        count)))
+
+(defn number-eq? [a b]
+  (let [precision (min (precision a) (precision b))
+        fmt (str "%." precision "f")]
+    (= (format fmt a) (format fmt b))))
+
 (defn fp-eq? [a b]
   (if (or (and (sequential? a) (empty? a))
           (and (sequential? b) (empty? b)))
     []
     (if (or (nil? a) (nil? b))
       []
-      (if (and (string? a) (string? b))
+      (cond
+        (and (string? a) (string? b))
         [(= (str/replace (str/lower-case a) #"\s+" " ")
             (str/replace (str/lower-case b) #"\s+" " "))]
-        (if (= a b)
-          [true]
-          [false])))))
+        (and (number? a) (number? b)) [(number-eq? a b)]
+        :else [(= a b)]))))
 
 (defn fp-not-eq? [a b]
   (if (and (nil? a) (nil? b))
@@ -232,7 +256,7 @@
         b
         [(not (first b))]))))
 
-(defn fp-subs [s a b]
+(defn fp-subs-fn [s a b]
   (->> (seqy s)
        (mapv #(subs % (int a) (int b)))))
 
@@ -240,28 +264,28 @@
   (fn [x]
     (let [v (f x)] (if (boolean? v) v (first v)))))
 
-(defn fp-where [s f]
+(defn fp-where-fn [s f]
   (filter (bool-fn f) (seqy s)))
 
-(defn fp-select [s f]
+(defn fp-select-fn [s f]
   (->> (seqy s)
        (reduce (fn [acc x]
                  (conjy acc (f x)))
                [])))
 
-(defn fp-count [s]
+(defn fp-count-fn [s]
   (count (seqy s)))
 
-(defn fp-repeat [s f]
-  (let [init (fp-select s f)]
+(defn fp-repeat-fn [s f]
+  (let [init (fp-select-fn s f)]
     (loop [res init
            work init]
-      (let [more (fp-select work f)]
+      (let [more (fp-select-fn work f)]
         (if (or (and more (empty? more)) (= more init))
           res
           (recur (into res more) more))))))
 
-(defn fp-ofType [s tp]
+(defn fp-ofType-fn [s tp]
   (let [v (seqy s)]
     (filter (fn [x]
               (cond
@@ -282,25 +306,41 @@
     (op a b)
     false))
 
+(defn fp-compare [op a b]
+  (let [a (pick-single a)
+        b (pick-single b)]
+    (cond
+      (or (nil? a) (nil? b)) []
+      (or (and (sequential? a) (empty? a))
+          (and (sequential? b) (empty? b))) []
+      (and (int? a) (int? b)) [(op a b)]
+      (and (double? a) (double? b)) [(op a b)]
+      (and (number? a) (number? b)) [(op a b)]
+      (and (string? a) (string? b)) [(op (compare a b) 0)]
+      (not (= (type a) (type b))) (throw (Exception. (str (pr-str a) " " op " " (pr-str b) " wrong type")))
+      :else (throw (Exception. (str (pr-str a) " " op " " (pr-str b) " wrong type"))))))
+
+
+
 (defn fp-lt [a b]
-  [:< a b])
+  (fp-compare < a b))
 
 (defn fp-lte [a b]
-  [:<=  a b])
+  (fp-compare <= a b))
 
 (defn fp-gt [a b]
-  [:>  a b])
+  (fp-compare > a b))
 
 (defn fp-gte [a b]
-  [:>=  a b])
+  (fp-compare >= a b))
 
-(defn fp-empty [s]
+(defn fp-empty-fn [s]
   (if (sequential? s)
     (empty? s)
     (if (nil? s)
       true false)))
 
-(defn fp-not [s]
+(defn fp-not-fn [s]
   (if (nil? s)
     true
     (let [s (seqy s)]
@@ -313,52 +353,51 @@
               (not val)
               false)))))))
 
-(defn fp-exists [s & [f]]
+(defn fp-exists-fn [s & [f]]
   (if f
-    (fp-exists (fp-where s f))
+    (fp-exists-fn (fp-where-fn s f))
     (not (empty? (seqy s)))))
 
-(defn fp-all [s f]
+(defn fp-all-fn [s f]
   (every? (bool-fn f) (seqy s)))
 
-(defn fp-allTrue [s]
+(defn fp-allTrue-fn [s]
   (every? #(= true %) (seqy s)))
 
-(defn fp-anyTrue [s]
+(defn fp-anyTrue-fn [s]
   (let [s (seqy s)]
     (if (empty? s)
       false
       (not (nil? (some true? s))))))
 
-(defn fp-allFalse [s]
+(defn fp-allFalse-fn [s]
   (every? false? (seqy s)))
 
-(defn fp-anyFalse [s]
+(defn fp-anyFalse-fn [s]
   (let [s (seqy s)]
     (if (empty? s)
       false
       (not (nil? (some false? s))))))
 
-(defn fp-subsetOf [s m]
+(defn fp-subsetOf-fn [s m]
   (clojure.set/subset? (into #{} (seqy s))
                        (into #{} (seqy m))))
 
-(defn fp-supersetOf [s m]
+(defn fp-supersetOf-fn [s m]
   (clojure.set/superset? (into #{} (seqy s))
                          (into #{} (seqy m))))
 
-(defn fp-isDistinct [s]
+(defn fp-isDistinct-fn [s]
   (let [s (seqy s)]
     (if (empty? s)
       true
       (apply distinct? s))))
 
-(defn fp-distinct [s]
+(defn fp-distinct-fn [s]
   (distinct (seqy s)))
 
-(distinct [false false])
 
-(defn fp-single [s]
+(defn fp-single-fn [s]
   (if (sequential? s)
     (cond
       (empty? s) nil
@@ -366,16 +405,16 @@
       :else {:$status "error" :$error "Expected single"})
     s))
 
-(defn fp-first [s]
+(defn fp-first-fn [s]
   (first (seqy s)))
 
-(defn fp-last [s]
+(defn fp-last-fn [s]
   (last (seqy s)))
 
-(defn fp-tail [s]
+(defn fp-tail-fn [s]
   (rest (seqy s)))
 
-(defn fp-skip [s n]
+(defn fp-skip-fn [s n]
   (drop (int n) (seqy s)))
 
 (defn fp-union [a b]
@@ -384,7 +423,7 @@
     (into (seqy a)
           (seqy b)))))
 
-(defn fp-combine [a b]
+(defn fp-combine-fn [a b]
   (into (seqy a) (seqy b)))
 
 
@@ -392,18 +431,19 @@
   (let [a (pick-single a)
         b (pick-single b)]
     (cond
-      (and  (int? a) (int? b))
-      (op a b)
-      (and  (number? a) (number? b))
-      (op (double a) (double b))
-      :else nil)))
+      (and  (number? a) (number? b))  (op a b)
+      (or (and (sequential? a) (empty? a))
+          (and (sequential? b) (empty? b))) []
+      (or (nil? a) (nil? b)) []
+      (and (= op +) (string? a) (string? b)) (str a b)
+      :else (throw (Exception. (str (pr-str a) "  " op  " " (pr-str b) " type missmatch"))))))
 
 (defn fp-* [a b]
   (fp-math-op * a b))
 
 (defn fp-division [a b]
-  (double (fp-math-op / a b)))
-
+  (when-let [v (fp-math-op / a b)]
+    (double v)))
 
 (defn fp-- [a b]
   (fp-math-op - a b))
@@ -415,12 +455,7 @@
   (fp-math-op mod a b))
 
 (defn fp-+ [a b]
-  (let [a (pick-single a)
-        b (pick-single b)]
-    (cond
-      (and  (number? a) (number? b)) (+ a b)
-      (and  (string? a) (string? b)) (str a b)
-      :else nil)))
+  (fp-math-op + a b))
 
 (defn fp-& [a b]
   (let [a (if (and (sequential? a) (empty? a)) "" a)
@@ -429,37 +464,37 @@
       (and  (string? a) (string? b)) (str a b)
       :else nil)))
 
-(defn fp-iif [s c ok & [ups]]
+(defn fp-iif-fn [s c ok & [ups]]
   (let [cnd (c s)]
     (if (if (boolean? cnd) cnd (if (sequential? cnd) (first cnd) cnd))
       (ok s)
       (when ups (ups s)))))
 
-(defn fp-toInteger [x]
+(defn fp-toInteger-fn [x]
   (let [x (pick-single x)]
     (cond
       (string? x) (Integer/parseInt x)
       (number? x) (int x)
       (boolean? x) (if true 1 0))))
 
-(defn fp-toDecimal [x]
+(defn fp-toDecimal-fn [x]
   (let [x (pick-single x)]
     (cond
       (string? x) (Double/parseDouble x)
       (number? x) (double x)
       (boolean? x) (if true 1.0 0))))
 
-(defn fp-toString [x]
+(defn fp-toString-fn [x]
   (str (pick-single x)))
 
-(defn fp-indexOf [x s]
+(defn fp-indexOf-fn [x s]
   (let [x (pick-single x)]
     (when (string? x)
       (let [res (str/index-of x s)]
         (if (nil? res) -1 res)))))
 
 
-(defn fp-substring [s & [i j]]
+(defn fp-substring-fn [s & [i j]]
   (let [s (pick-single s)]
     (when (string? s)
       (let [l (count s)]
@@ -469,52 +504,49 @@
           (when (< i l)
             (subs s i)))))))
 
-(defn fp-startsWith [s ss]
+(defn fp-startsWith-fn [s ss]
   (let [s (pick-single s)]
     (when (string? s)
       (str/starts-with? s ss))))
 
-(defn fp-endsWith [s ss]
+(defn fp-endsWith-fn [s ss]
   (let [s (pick-single s)]
     (when (string? s)
       (str/ends-with? s ss))))
 
-(defn fp-contains [s ss]
-  (let [s (pick-single s)]
-    (when (string? s)
-      (str/includes? s ss))))
 
-(defn fp-replace [s ss r]
+
+(defn fp-replace-fn [s ss r]
   (let [s (pick-single s)]
     (when (string? s)
       (str/replace s (re-pattern ss) r))))
 
-(defn fp-matches [s ss]
+(defn fp-matches-fn [s ss]
   (let [s (pick-single s)]
     (when (string? s)
       (not (nil? (re-matches (re-pattern ss) s))))))
 
-(defn fp-replaceMatches [s ss r]
+(defn fp-replaceMatches-fn [s ss r]
   (let [s (pick-single s)]
     (when (string? s)
       (str/replace s (re-pattern ss) r))))
 
-(defn fp-length [s]
+(defn fp-length-fn [s]
   (let [s (pick-single s)]
     (when (string? s)
       (count s))))
 
-(defn fp-children [s]
+(defn fp-children-fn [s]
   (filterv
    #(not (nil? %))
    (cond (map? s)
          (mapcat seqy (vals s))
          (sequential? s)
-         (vec (mapcat #(seqy (fp-children %)) s)))))
+         (vec (mapcat #(seqy (fp-children-fn %)) s)))))
 
-(defn fp-descendants [s]
-  (let [ch (fp-children s)]
-    (into ch (mapcat #(seqy (fp-descendants %)) ch))))
+(defn fp-descendants-fn [s]
+  (let [ch (fp-children-fn s)]
+    (into ch (mapcat #(seqy (fp-descendants-fn %)) ch))))
 
 (defn fp-and [a b]
   (cond
@@ -572,7 +604,7 @@
     [(and a b)]))
 
 
-(defn fp-trace [s a] s)
+(defn fp-trace-fn [x & args] (println :trace x args) x)
 
 (def converters
   {["lbs" "kg"] (fn [lbs] (* lbs 0.45359237))
@@ -595,15 +627,30 @@
                        {:value (conv v) :unit unit}
                        {:error (str "No conversion from " from " to " unit)}))))))))
 
-(defn fp-today [s]
+(defn fp-today-fn [s]
   (.format (java.time.LocalDate/now) java.time.format.DateTimeFormatter/ISO_LOCAL_DATE))
 
-(defn fp-now [s]
+(defn fp-now-fn [s]
   (.format (java.time.ZonedDateTime/now) java.time.format.DateTimeFormatter/ISO_OFFSET_DATE_TIME))
 
 
-(defn fp-in [& args]
-  [:fp-in args])
+(defn fp-in [el coll]
+  (if (nil? el)
+    []
+    (let [el (pick-single el)]
+      [(not (nil? (some #(= % el) (seqy coll))))])))
+
+(defn fp-contains [coll el]
+  (if (nil? el)
+    []
+    (let [el (pick-single el)]
+      [(not (nil? (some #(= % el) (seqy coll))))])))
+
+(defn fp-contains-fn [s ss]
+  (let [s (pick-single s)]
+    (when (string? s)
+      (str/includes? s ss))))
+
 
 ;; (fp-descendants {:a [{:e 1 :d 20}] :b 2 :c 3})
 
@@ -635,7 +682,8 @@
 ;;     {:resourceType "Functions"
 ;;      :coll1 [{:coll2 [{:attr 1} {:attr 2}]}]})
 ;; (parse "ok1 xor ok2")
-(parse "1 != 2")
-(parse "1 = 2")
-(parse "1 ~ 2")
-(parse "1 !~ 2")
+;; (parse "1 != 2")
+;; (parse "1 = 2")
+;; (parse "1 ~ 2")
+;; (parse "1 !~ 2")
+ ;; (parse "1 > 2")
