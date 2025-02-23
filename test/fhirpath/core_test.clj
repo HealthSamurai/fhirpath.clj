@@ -184,6 +184,8 @@
 
   (is (>= 1 (.between java.time.temporal.ChronoUnit/SECONDS (java.time.ZonedDateTime/now) (parse-zoned (sut/fp "Functions.now()" {})))))
 
+  (sut/fp "0.1 + 0.1 + 0.1 = 0.3" {})
+  (sut/fp "'a' ~ 'A'" {})
 
   (do-test "cases/5.1_existence.yaml")
   (do-test "cases/5.2_filtering_and_projection.yaml")
@@ -195,6 +197,11 @@
   (do-test "cases/5.7_tree_navigation.yaml")
   (do-test "cases/5.8_utility_functions.yaml")
   (do-test "cases/6.1_equality.yaml")
+
+  (do-test "cases/6.2_comparision.yaml")
+  (do-test "cases/6.3_types.yaml")
+  (do-test "cases/6.4_collection.yaml")
+  (do-test "cases/6.4_collections.yaml")
   (do-test "cases/6.5_boolean_logic.yaml")
   (do-test "cases/6.6_math.yaml")
   (do-test "cases/6.6_math.yaml")

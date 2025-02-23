@@ -72,7 +72,8 @@
       (proxy-super visitChildren ctx))
 
     (visitMembershipExpression [^FHIRPathParser$MembershipExpressionContext ctx]
-      (assert false))
+      `(~(symbol (str "fhirpath.core/fp-" (.getText (.getChild ctx 1))))
+        ~@(proxy-super visitChildren ctx)))
 
     (visitAdditiveExpression [^FHIRPathParser$AdditiveExpressionContext ctx]
       `(~(symbol (str "fhirpath.core/fp-" (.getText (.getChild ctx 1))))
@@ -86,17 +87,34 @@
 
     (visitEqualityExpression [^FHIRPathParser$EqualityExpressionContext ctx]
       (let [op (.getText (.getChild ctx 1))]
-        (if (= "!=" op)
+        (case op
+          "!="
           `(fp-not-eq ~@(proxy-super visitChildren ctx))
-          `(fp-eq ~@(proxy-super visitChildren ctx)))))
+          "="
+          `(fp-eq ~@(proxy-super visitChildren ctx))
+          "~"
+          `(fp-eq? ~@(proxy-super visitChildren ctx))
+
+          "!~"
+          `(fp-not-eq? ~@(proxy-super visitChildren ctx))
+
+          )))
 
     (visitNullLiteral [^FHIRPathParser$NullLiteralContext ctx]
       nil)
 
     (visitInequalityExpression [^FHIRPathParser$InequalityExpressionContext ctx]
-      `(fp-ineq
-        ~(symbol (.getText (.getChild ctx 1)))
-        ~@(proxy-super visitChildren ctx)))
+      (let [op (.getText (.getChild ctx 1))]
+        (case op
+          "<"
+          `(fp-lt ~@(proxy-super visitChildren ctx))
+          "<="
+          `(fp-lte ~@(proxy-super visitChildren ctx))
+          ">"
+          `(fp-gt ~@(proxy-super visitChildren ctx))
+
+          ">="
+          `(fp-gte ~@(proxy-super visitChildren ctx)))))
 
     (visitNumberLiteral [^FHIRPathParser$NumberLiteralContext ctx]
       (read-string (.getText (.NUMBER ctx))))
@@ -193,6 +211,27 @@
       b
       [(not (first b))])))
 
+(defn fp-eq? [a b]
+  (if (or (and (sequential? a) (empty? a))
+          (and (sequential? b) (empty? b)))
+    []
+    (if (or (nil? a) (nil? b))
+      []
+      (if (and (string? a) (string? b))
+        [(= (str/replace (str/lower-case a) #"\s+" " ")
+            (str/replace (str/lower-case b) #"\s+" " "))]
+        (if (= a b)
+          [true]
+          [false])))))
+
+(defn fp-not-eq? [a b]
+  (if (and (nil? a) (nil? b))
+    [false]
+    (let [b (fp-eq? a b)]
+      (if (empty? b)
+        b
+        [(not (first b))]))))
+
 (defn fp-subs [s a b]
   (->> (seqy s)
        (mapv #(subs % (int a) (int b)))))
@@ -238,9 +277,22 @@
   (nth (seqy s) (int n) nil))
 
 (defn fp-ineq [op a b]
-  (if (and (number? a) (number? b))
+  [:ineq op a b]
+  #_(if (and (number? a) (number? b))
     (op a b)
     false))
+
+(defn fp-lt [a b]
+  [:< a b])
+
+(defn fp-lte [a b]
+  [:<=  a b])
+
+(defn fp-gt [a b]
+  [:>  a b])
+
+(defn fp-gte [a b]
+  [:>=  a b])
 
 (defn fp-empty [s]
   (if (sequential? s)
@@ -549,6 +601,10 @@
 (defn fp-now [s]
   (.format (java.time.ZonedDateTime/now) java.time.format.DateTimeFormatter/ISO_OFFSET_DATE_TIME))
 
+
+(defn fp-in [& args]
+  [:fp-in args])
+
 ;; (fp-descendants {:a [{:e 1 :d 20}] :b 2 :c 3})
 
 ;; (fp-descendants {:a [{:b 1 :c [{:d 1}]}]})
@@ -581,3 +637,5 @@
 ;; (parse "ok1 xor ok2")
 (parse "1 != 2")
 (parse "1 = 2")
+(parse "1 ~ 2")
+(parse "1 !~ 2")
