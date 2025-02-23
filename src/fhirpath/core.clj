@@ -8,7 +8,6 @@
   (:require [clojure.string :as str]
             [clojure.set]))
 
-
 (defn to-list [x]
   (apply list x))
 
@@ -17,10 +16,15 @@
     (vec s)
     (if (nil? s) [] [s])))
 
+(defn pick-single [a]
+  (if (sequential? a)
+    (if (= (count a) 1) (first a) nil)
+    a))
+
 (defn- make-visitor []
   (proxy [FHIRPathBaseVisitor] []
     (aggregateResult [a b]
-      (->> (conj (if (sequential? a) a [a]) b)
+      (->> (conj (seqy a) b)
            (filterv #(not (nil? %)))))
 
     (visitInvocationExpression [^FHIRPathParser$InvocationExpressionContext ctx]
@@ -44,8 +48,6 @@
     (visitLiteralTerm [^FHIRPathParser$LiteralTermContext ctx]
       (first (seqy (proxy-super visitChildren ctx))))
 
-    (visitEqualityExpression [^FHIRPathParser$EqualityExpressionContext ctx]
-      `(fp-eq ~@(proxy-super visitChildren ctx)))
 
     (visitAndExpression [^FHIRPathParser$AndExpressionContext ctx]
       `(fp-and ~@(proxy-super visitChildren ctx)))
@@ -69,9 +71,6 @@
     (visitFunctn [^FHIRPathParser$FunctnContext ctx]
       (proxy-super visitChildren ctx))
 
-    (visitImpliesExpression [^FHIRPathParser$ImpliesExpressionContext ctx]
-      (assert false))
-
     (visitMembershipExpression [^FHIRPathParser$MembershipExpressionContext ctx]
       (assert false))
 
@@ -84,6 +83,12 @@
             op (if (= op "/") "division" op)
             qfn (symbol (str "fhirpath.core/fp-" op))]
         `(~qfn ~@(proxy-super visitChildren ctx))))
+
+    (visitEqualityExpression [^FHIRPathParser$EqualityExpressionContext ctx]
+      (let [op (.getText (.getChild ctx 1))]
+        (if (= "!=" op)
+          `(fp-not-eq ~@(proxy-super visitChildren ctx))
+          `(fp-eq ~@(proxy-super visitChildren ctx)))))
 
     (visitNullLiteral [^FHIRPathParser$NullLiteralContext ctx]
       nil)
@@ -128,59 +133,89 @@
     ;; (visitQuantityLiteral [^FHIRPathParser$QuantityLiteralContext ctx])
 
     (visitOrExpression [^FHIRPathParser$OrExpressionContext ctx]
-      `(fp-or ~@(proxy-super visitChildren ctx)))
+      (let [op (.getText (.getChild ctx 1))
+            qfn (symbol (str "fhirpath.core/fp-" op))]
+        `(~qfn ~@(proxy-super visitChildren ctx))))
+
+    (visitXorExpression [^FHIRPathParser$OrExpressionContext ctx]
+      `(fp-xor ~@(proxy-super visitChildren ctx)))
+
+    (visitImpliesExpression [^FHIRPathParser$ImpliesExpressionContext ctx]
+      `(fp-implies ~@(proxy-super visitChildren ctx)))
 
     (visitParenthesizedTerm [^FHIRPathParser$ParenthesizedTermContext ctx]
       `(do ~@(proxy-super visitChildren ctx)))
     ))
 
-(defn fp-take [subj num]
-  (take (int num) subj))
-
-(defn fp-get-one [x k]
-  (or (get x k)
+(defn getk [x k]
+  (let [v (get x k)]
+    (if (nil? v)
       (get x (name k))
-      (when (= (:resourceType x) (name k)) x)
-      (get x (str (name k) "Quantity"))))
+      v)))
+
+(defn conjy [acc res]
+  (if (sequential? res)
+    (into acc res)
+    (if (nil? res)
+      acc
+      (conj acc res))))
+
+(defn fp-take [subj num]
+  (take (int num) (seqy subj)))
+
+;; TODO: other types
+(defn fp-get-one [x k]
+  (let [v (getk x k)]
+    (if (nil? v)
+      (or (when (= (:resourceType x) (name k)) x)
+          (get x (str (name k) "Quantity")))
+      v)))
 
 (defn fp-get [subj k]
-  (->> (if (sequential? subj) subj [subj])
-       (reduce (fn [acc x]
-                 (let [res (fp-get-one x k)]
-                   (if (sequential? res)
-                     (into acc res)
-                     (if (not (nil? res))
-                       (conj acc res)
-                       acc)))) [])))
+  (if (sequential? subj)
+    (->> subj
+         (reduce (fn [acc x] (conjy acc (fp-get-one x k))) []))
+    (fp-get-one subj k)))
 
 (defn fp-eq [a b]
-  (let [a (if (sequential? a) a [a])
-        b (if (sequential? b) b [b])]
-    (= a b)))
+  (if (or (and (sequential? a) (empty? a))
+          (and (sequential? b) (empty? b)))
+    []
+    (if (or (nil? a) (nil? b))
+      []
+      (if (= a b)
+        [true]
+        [false]))))
+
+(defn fp-not-eq [a b]
+  (let [b (fp-eq a b)]
+    (if (empty? b)
+      b
+      [(not (first b))])))
 
 (defn fp-subs [s a b]
-  (subs s (int a) (int b)))
+  (->> (seqy s)
+       (mapv #(subs % (int a) (int b)))))
+
+(defn bool-fn [f]
+  (fn [x]
+    (let [v (f x)] (if (boolean? v) v (first v)))))
 
 (defn fp-where [s f]
-  (filter f s))
+  (filter (bool-fn f) (seqy s)))
 
 (defn fp-select [s f]
-  (reduce (fn [acc x]
-            (let [res (f x)]
-              (if (sequential? res)
-                (into acc res)
-                (if (nil? res)
-                  acc
-                  (conj acc res)))
-              )) []
-          (if (sequential? s) s [s])))
+  (->> (seqy s)
+       (reduce (fn [acc x]
+                 (conjy acc (f x)))
+               [])))
 
 (defn fp-count [s]
-  (count s))
+  (count (seqy s)))
 
 (defn fp-repeat [s f]
   (let [init (fp-select s f)]
-    (loop [res init 
+    (loop [res init
            work init]
       (let [more (fp-select work f)]
         (if (or (and more (empty? more)) (= more init))
@@ -213,16 +248,18 @@
     (if (nil? s)
       true false)))
 
-
-
 (defn fp-not [s]
-  (if (sequential? s)
-    (if (empty? s)
-      []
-      (let [val (and (= (count s) 1) (first s))]
-        (if (boolean? s) (not s)
-            false)))
-    (not s)))
+  (if (nil? s)
+    true
+    (let [s (seqy s)]
+      (if (empty? s)
+        []
+        (if (> (count s) 1)
+          false
+          (let [val (pick-single s)]
+            (if (boolean? val)
+              (not val)
+              false)))))))
 
 (defn fp-exists [s & [f]]
   (if f
@@ -230,10 +267,10 @@
     (not (empty? (seqy s)))))
 
 (defn fp-all [s f]
-  (every? f (if (sequential? s) s (if (nil? s) [] [s]))))
+  (every? (bool-fn f) (seqy s)))
 
 (defn fp-allTrue [s]
-  (every? #(= true %) (if (sequential? s) s (if (nil? s) [] [s]))))
+  (every? #(= true %) (seqy s)))
 
 (defn fp-anyTrue [s]
   (let [s (seqy s)]
@@ -258,16 +295,16 @@
   (clojure.set/superset? (into #{} (seqy s))
                          (into #{} (seqy m))))
 
-
-
 (defn fp-isDistinct [s]
   (let [s (seqy s)]
     (if (empty? s)
       true
-      (apply distinct? (seqy s)))))
+      (apply distinct? s))))
 
 (defn fp-distinct [s]
-  (into [] (distinct (seqy s))))
+  (distinct (seqy s)))
+
+(distinct [false false])
 
 (defn fp-single [s]
   (if (sequential? s)
@@ -299,24 +336,35 @@
   (into (seqy a) (seqy b)))
 
 
-(defn fp-* [a b]
-  (let [a (if (sequential? a) (first a) a)
-        b (if (sequential? b) (first b) b)]
+(defn fp-math-op [op a b]
+  (let [a (pick-single a)
+        b (pick-single b)]
     (cond
-      (and  (number? a) (number? b)) (* (double a) b)
+      (and  (int? a) (int? b))
+      (op a b)
+      (and  (number? a) (number? b))
+      (op (double a) (double b))
       :else nil)))
 
-(defn fp-division
-  [a b]
-  (let [a (if (sequential? a) (first a) a)
-        b (if (sequential? b) (first b) b)]
-    (cond
-      (and  (number? a) (number? b)) (/ (double a) b)
-      :else nil)))
+(defn fp-* [a b]
+  (fp-math-op * a b))
+
+(defn fp-division [a b]
+  (double (fp-math-op / a b)))
+
+
+(defn fp-- [a b]
+  (fp-math-op - a b))
+
+(defn fp-div [a b]
+  (fp-math-op #(int (/ %1 %2)) a b))
+
+(defn fp-mod [a b]
+  (fp-math-op mod a b))
 
 (defn fp-+ [a b]
-  (let [a (if (sequential? a) (first a) a)
-        b (if (sequential? b) (first b) b)]
+  (let [a (pick-single a)
+        b (pick-single b)]
     (cond
       (and  (number? a) (number? b)) (+ a b)
       (and  (string? a) (string? b)) (str a b)
@@ -329,65 +377,38 @@
       (and  (string? a) (string? b)) (str a b)
       :else nil)))
 
-(defn fp-- [a b]
-  (let [a (if (sequential? a) (first a) a)
-        b (if (sequential? b) (first b) b)]
-    (cond
-      (and  (number? a) (number? b)) (- a b)
-      :else nil)))
-
-(defn fp-div [a b]
-  (let [a (if (sequential? a) (first a) a)
-        b (if (sequential? b) (first b) b)]
-    (cond
-      (and  (number? a) (number? b)) (int (/ a b))
-      :else nil)))
-
-(defn fp-mod [a b]
-  (cond
-    (and  (number? a) (number? b)) (mod a b)
-    :else nil))
-
 (defn fp-iif [s c ok & [ups]]
-  (if (c s) (ok s) (when ups (ups s))))
+  (let [cnd (c s)]
+    (if (if (boolean? cnd) cnd (if (sequential? cnd) (first cnd) cnd))
+      (ok s)
+      (when ups (ups s)))))
 
 (defn fp-toInteger [x]
-  (cond
-    (string? x) (Integer/parseInt x)
-    (number? x) (int x)
-    (boolean? x) (if true 1 0)))
+  (let [x (pick-single x)]
+    (cond
+      (string? x) (Integer/parseInt x)
+      (number? x) (int x)
+      (boolean? x) (if true 1 0))))
 
 (defn fp-toDecimal [x]
-  (cond
-    (string? x) (Double/parseDouble x)
-    (number? x) (double x)
-    (boolean? x) (if true 1.0 0)))
+  (let [x (pick-single x)]
+    (cond
+      (string? x) (Double/parseDouble x)
+      (number? x) (double x)
+      (boolean? x) (if true 1.0 0))))
 
 (defn fp-toString [x]
-  (str x))
-
-(defn singl [x]
-  (if (sequential? x) (first x) x))
+  (str (pick-single x)))
 
 (defn fp-indexOf [x s]
-  (let [x (singl x)]
+  (let [x (pick-single x)]
     (when (string? x)
       (let [res (str/index-of x s)]
         (if (nil? res) -1 res)))))
 
-(defn parse [s]
-  (let [lexer  (FHIRPathLexer. (CharStreams/fromString s))
-        tokens (CommonTokenStream. lexer)
-        parser (FHIRPathParser. tokens)
-        visitor (make-visitor)
-        body (.visit visitor (.expression parser))]
-    (to-list (into ['fn ['doc '& ['**env]] body]))))
-
-(defn compile [expr]
-  (eval (parse expr)))
 
 (defn fp-substring [s & [i j]]
-  (let [s (singl s)]
+  (let [s (pick-single s)]
     (when (string? s)
       (let [l (count s)]
         (if (and i j)
@@ -443,6 +464,62 @@
   (let [ch (fp-children s)]
     (into ch (mapcat #(seqy (fp-descendants %)) ch))))
 
+(defn fp-and [a b]
+  (cond
+    (sequential? b)
+    (cond
+      (true? a) []
+      (false? a) [false]
+      (sequential? a) []
+      :else a)
+    (sequential? a)
+    (if (true? b)
+      []
+      [false])
+    :else
+    [(and a b)]))
+
+(defn fp-or [a b]
+  (cond (sequential? b)
+        (cond
+          (true? a) [true]
+          (false? a) []
+          (sequential? a) []
+          :else a)
+        (sequential? a)
+        (if (true? b)
+          [true]
+          [])
+        :else
+        [(or a b)]))
+
+(defn fp-xor [a b]
+  (cond
+    (and (sequential? a) (sequential? b) (empty? a) (empty? b)) []
+    (and (sequential? a) (empty? a)) (if b [true] [])
+    (and (sequential? b) (empty? b)) (if a [true] [])
+    :else
+    [(or (and a (not b))
+         (and (not a) b))]))
+
+(defn fp-implies [a b]
+  (cond
+    (sequential? b)
+    (cond
+      (true? a) []
+      (false? a) [true]
+      (sequential? a) []
+      :else a)
+    (sequential? a)
+    (if (true? b)
+      [true]
+      [])
+    (false? a)
+    [true]
+    :else
+    [(and a b)]))
+
+
 (defn fp-trace [s a] s)
 
 (def converters
@@ -466,36 +543,41 @@
                        {:value (conv v) :unit unit}
                        {:error (str "No conversion from " from " to " unit)}))))))))
 
-;; (fp-descendants {:a [{:e 1 :d 20}] :b 2 :c 3})
-
-;; (fp-descendants {:a [{:b 1 :c [{:d 1}]}]})
-
-(defn fp [expr data & [env]]
-  ((compile expr) data (assoc (or env {}) :context data)))
-
 (defn fp-today [s]
   (.format (java.time.LocalDate/now) java.time.format.DateTimeFormatter/ISO_LOCAL_DATE))
 
 (defn fp-now [s]
   (.format (java.time.ZonedDateTime/now) java.time.format.DateTimeFormatter/ISO_OFFSET_DATE_TIME))
 
+;; (fp-descendants {:a [{:e 1 :d 20}] :b 2 :c 3})
 
+;; (fp-descendants {:a [{:b 1 :c [{:d 1}]}]})
+
+(defn parse [s]
+  (let [lexer  (FHIRPathLexer. (CharStreams/fromString s))
+        tokens (CommonTokenStream. lexer)
+        parser (FHIRPathParser. tokens)
+        visitor (make-visitor)
+        body (.visit visitor (.expression parser))]
+    (to-list (into ['fn ['doc '& ['**env]] body]))))
+
+(defn compile [expr]
+  (eval (parse expr)))
+
+(defn fp [expr data & [env]]
+  ((compile expr) data (assoc (or env {}) :context data)))
 
 ;; (parse "Functions.coll1[0].a.take(10).where(use= 'ok').subs(1)")
-
 ;; (parse "%var.a")
-
-(fp "%varo.a" {} {:varo {:a 1}})
-(fp "a.b.c" {:a {:b {:c 2}}} {:varo {:a 1}})
-(fp "((%weight/%height/%height*10 +0.5) div 1)/10" {} {:weight 10 :height 10})
-(fp "((%weight/%height/%height*10 +0.5) div 1)/10" {} {:weight [10] :height [10]})
-
-(parse "((%weight/%height/%height*10 +0.5) div 1)/10")
-
+;; (fp "%varo.a" {} {:varo {:a 1}})
+;; (fp "a.b.c" {:a {:b {:c 2}}} {:varo {:a 1}})
+;; (fp "((%weight/%height/%height*10 +0.5) div 1)/10" {} {:weight 10 :height 10})
+;; (fp "((%weight/%height/%height*10 +0.5) div 1)/10" {} {:weight [10] :height [10]})
+;; (parse "((%weight/%height/%height*10 +0.5) div 1)/10")
 ;; (type (fp "101.99" {}))
-
 ;; (fp "Functions.coll1"
 ;;     {:resourceType "Functions"
 ;;      :coll1 [{:coll2 [{:attr 1} {:attr 2}]}]})
-
-
+;; (parse "ok1 xor ok2")
+(parse "1 != 2")
+(parse "1 = 2")

@@ -19,26 +19,22 @@
                               {:b [{:c 3}{:c 4}]}]})
          [1 2 3 4]))
 
-  (is (= "23"
-         (sut/fp "str.subs(1,3)" {:str "12345"})))
+  (is (= (sut/fp "str.subs(1,3)" {:str "12345"}) ["23"] ))
 
-  (is (= [1 2]
-         (sut/fp "a.take(2)" {:a [1 2 3 4 5]})))
+  (is (= [1 2] (sut/fp "a.take(2)" {:a [1 2 3 4 5]})))
 
-  (is (= true (sut/fp "a = b" {:a 1 :b 1})))
-  (is (= false (sut/fp "a = b" {:a 1 :b 2})))
-  
-
+  ;; (is (= [true] (sut/fp "a = b" {:a 1 :b 1})))
+  ;; (is (= [false] (sut/fp "a = b" {:a 1 :b 2})))
   (def data {:name [{:use "work"
                      :given "Kolja"}
                     {:use "home"
                      :given "Nikolai"}]})
 
-  (is (= ["Nikolai"] (sut/fp "name.where(use = 'home').given" data)))
-  (is (= ["Kolja"] (sut/fp "name.where(use = 'work').given" data)))
+  ;; (is (= ["Nikolai"] (sut/fp "name.where(use = 'home').given" data)))
+  ;; (is (= ["Kolja"] (sut/fp "name.where(use = 'work').given" data)))
   (is (= "Kolja" (sut/fp "name[0].given" data)))
   (is (= "Nikolai" (sut/fp "name[1].given" data)))
-  (is (= nil (sut/fp "name[100].given" data)))
+  (is (nil? (sut/fp "name[100].given" data)))
 
   )
 
@@ -72,7 +68,8 @@
 
 
   (is (= [3 4 5]
-         (sut/fp "a.b.where($this > 2)" {:a {:b [1 2 3 4 5]}})))
+         (sut/fp "a.b.where($this > 2)" {:a {:b [1 2 3 4 5]}})
+         ))
 
 
   (is (= [1 2 3 4 5 6]
@@ -84,7 +81,7 @@
                                     {:b 2}]})))
   (is (= [1]
          (sut/fp "a.select(b)" {:a {:b 1}})))
-  
+
   (is (= [{:a {:a 1}} {:a 1} 1]
          (sut/fp "b.repeat(a)" {:b {:a {:a {:a 1}}}})))
 
@@ -102,10 +99,9 @@
   (is (sut/fp "b.subsetOf(a)" {:a [1 2 3] :b [1 2]}))
   (is (not (sut/fp "a.subsetOf(b)" {:a [1 2 3] :b [1 2]})))
 
-  (is (= 2
-         (sut/fp "Functions.coll1[0].coll2[1].attr"
-             {:resourceType "Functions"
-              :coll1 [{:coll2 [{:attr 1} {:attr 2}]}]})))
+  (is (= 2 (sut/fp "Functions.coll1[0].coll2[1].attr"
+                     {:resourceType "Functions"
+                      :coll1 [{:coll2 [{:attr 1} {:attr 2}]}]})))
 
   (sut/parse "Functions.coll1[0].coll2.attr")
 
@@ -115,7 +111,6 @@
           {:resourceType "Functions"
            :coll1 [{:coll2 [{:attr 1} {:attr 2} {:attr 3}]}
                    {:coll2 [{:attr 4} {:attr 5}]}]})))
-  
   (is (= [4 5]
          (sut/fp
           "Functions.coll1[1].coll2.attr"
@@ -124,9 +119,8 @@
                    {:coll2 [{:attr 4} {:attr 5}]}]})))
 
   (def edata (:subject (load-case "cases/5.1_existence.yaml")))
-  (sut/fp
-   "Functions.attrdouble.subsetOf(Functions.coll1[0].coll2.attr)"
-   edata)
+
+  (sut/fp "Functions.attrdouble.subsetOf(Functions.coll1[0].coll2.attr)" edata)
 
   (sut/fp "Functions.attrdouble" edata)
 
@@ -134,27 +128,19 @@
 
   (sut/fp "Functions.coll1" edata)
 
-  (sut/fp
-   "Functions.attrdouble.subsetOf(Functions.coll1[0].coll2.attr)"
-   (load-case "cases/5.1_existence.yaml"))
+  (sut/fp "Functions.attrdouble.subsetOf(Functions.coll1[0].coll2.attr)" edata)
 
-  (sut/fp
-   "Functions.attrdouble.supersetOf(Functions.coll1[0].coll2.attr"
-   (load-case "cases/5.1_existence.yaml"))
-  
-  (is (not (sut/fp "collfalse.attr.isDistinct()"
-                   {:collfalse [{:attr false}
-                                {:attr false}]})))
+  (sut/fp "Functions.attrdouble.supersetOf(Functions.coll1[0].coll2.attr" edata)
 
+  (is (= [false false] (sut/fp "collfalse.attr" {:collfalse [{:attr false} {:attr false}]})))
 
-  (sut/fp "collfalse.attr.isDistinct()" {:collfalse [{:attr false}
-                                                     {:attr false}]})
+  (is (not   (sut/fp "collfalse.attr.isDistinct()" {:collfalse [{:attr false} {:attr false}]})))
+
+  (sut/fp "Functions.attrfalse.not()" edata)
+  (sut/fp "Functions.attrdouble.not()" edata)
+  (sut/fp "Functions.nothing.not()" edata)
 
 
-  (do-test "cases/5.1_existence.yaml")
-  (do-test "cases/5.2_filtering_and_projection.yaml")
-  (do-test "cases/5.2.3_repeat.yaml")
-  (do-test "cases/5.3_subsetting.yaml")
 
   (is (= [1 2 3 4 5]
          (sut/fp "a | b" {:a [1 2 3 3]
@@ -166,13 +152,10 @@
 
   (def cdata (:subject (load-case "cases/5.4_combining.yaml")))
 
-  (sut/fp 
+  (sut/fp
    "Functions.attrdouble | Functions.coll1.coll2.attr"
    cdata)
 
-  (do-test "cases/5.4_combining.yaml")
-
-  (do-test "cases/5.5_conversion.yaml")
 
   (is (= 4 (sut/fp "a.iif(b = 3, 4, 5 )" {:a {:b 3}})))
   (is (= 5 (sut/fp "a.iif(b = 3, 4, 5 )" {:a {:b 4}})))
@@ -181,7 +164,6 @@
 
   (is (= "cdefg"
          (sut/fp "attr.substring(2, 5555)" {:attr "abcdefg"})))
-  
 
   (sut/fp "attr.replace('', 'x')", {:attr "abc"})
 
@@ -189,33 +171,36 @@
           {:attr "11/30/1972"})
 
 
-  (do-test "cases/6.6_math.yaml")
 
+  (def math-data (:subject (load-case "cases/6.6_math.yaml")))
+
+  (sut/fp "n2/n1" math-data)
 
   (is (= 1 (sut/fp "%v.a" {} {:v {:a 1}})))
 
   (sut/fp "%v.a" {} {:v {:a 1}})
 
+  (is (= (java.time.LocalDate/now) (parse-local (sut/fp "Functions.today()" {}))))
 
+  (is (>= 1 (.between java.time.temporal.ChronoUnit/SECONDS (java.time.ZonedDateTime/now) (parse-zoned (sut/fp "Functions.now()" {})))))
+
+
+  (do-test "cases/5.1_existence.yaml")
+  (do-test "cases/5.2_filtering_and_projection.yaml")
+  (do-test "cases/5.2.3_repeat.yaml")
+  (do-test "cases/5.3_subsetting.yaml")
+  (do-test "cases/5.4_combining.yaml")
+  (do-test "cases/5.5_conversion.yaml")
   (do-test "cases/5.6_string_manipulation.yaml")
   (do-test "cases/5.7_tree_navigation.yaml")
   (do-test "cases/5.8_utility_functions.yaml")
-
-  (println (apply str (repeat 80 "=")))
-
-  (is (= (java.time.LocalDate/now)
-         (parse-local (sut/fp "Functions.today()" {}))))
-
-  (is (>= 1
-         (.between java.time.temporal.ChronoUnit/SECONDS
-                   (java.time.ZonedDateTime/now)
-                   (parse-zoned (sut/fp "Functions.now()" {})))))
-
-  (do-test "cases/8_variables.yaml")
+  (do-test "cases/6.1_equality.yaml")
+  (do-test "cases/6.5_boolean_logic.yaml")
   (do-test "cases/6.6_math.yaml")
-  ;; (do-test "cases/6.1_equality.yaml")
+  (do-test "cases/6.6_math.yaml")
+  (do-test "cases/8_variables.yaml")
 
-  ;; (do-test "cases/6.5_boolean_logic.yaml")
+
 
   )
 
