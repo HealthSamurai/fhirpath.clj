@@ -1,0 +1,29 @@
+name: Tests
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+      - name: Install Clojure Tools
+        uses: DeLaGuardo/setup-clojure@12.3
+        with:
+          cli: latest
+      - name: Run Tests
+        run: clojure -M:test
+      # Optional - Cache deps
+      - uses: actions/cache@v3
+        with:
+          path: ~/.m2
+          key: ${{ runner.os }}-m2-${{ hashFiles('**/deps.edn') }}
+      - uses: actions/cache@v3
+        with:
+          path: .fhir-packages
+          key: fhir-packages

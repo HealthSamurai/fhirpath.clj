@@ -418,37 +418,37 @@
             (subs s i)))))))
 
 (defn fp-startsWith [s ss]
-  (let [s (singl s)]
+  (let [s (pick-single s)]
     (when (string? s)
       (str/starts-with? s ss))))
 
 (defn fp-endsWith [s ss]
-  (let [s (singl s)]
+  (let [s (pick-single s)]
     (when (string? s)
       (str/ends-with? s ss))))
 
 (defn fp-contains [s ss]
-  (let [s (singl s)]
+  (let [s (pick-single s)]
     (when (string? s)
       (str/includes? s ss))))
 
 (defn fp-replace [s ss r]
-  (let [s (singl s)]
+  (let [s (pick-single s)]
     (when (string? s)
       (str/replace s (re-pattern ss) r))))
 
 (defn fp-matches [s ss]
-  (let [s (singl s)]
+  (let [s (pick-single s)]
     (when (string? s)
       (not (nil? (re-matches (re-pattern ss) s))))))
 
 (defn fp-replaceMatches [s ss r]
-  (let [s (singl s)]
+  (let [s (pick-single s)]
     (when (string? s)
       (str/replace s (re-pattern ss) r))))
 
 (defn fp-length [s]
-  (let [s (singl s)]
+  (let [s (pick-single s)]
     (when (string? s)
       (count s))))
 
