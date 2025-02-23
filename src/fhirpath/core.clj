@@ -484,6 +484,21 @@
       (number? x) (double x)
       (boolean? x) (if true 1.0 0))))
 
+(defn fp-toDateTime-fn [x]
+  [:todatetime x])
+
+(defn fp-toTime-fn [x]
+  [:totime x])
+
+(defn fp-toDate-fn [x]
+  [:todate x])
+
+(defn fp-toBoolean-fn [x]
+  [:toboolean x])
+
+(defn fp-toString-fn [x]
+  (str (pick-single x)))
+
 (defn fp-toString-fn [x]
   (str (pick-single x)))
 
@@ -495,36 +510,52 @@
 
 
 (defn fp-substring-fn [s & [i j]]
+  (println :substring i j)
   (let [s (pick-single s)]
     (when (string? s)
       (let [l (count s)]
-        (if (and i j)
+        (cond
+          (and i j)
           (when (and (< -1 i l))
             (subs s i (min l (+ i j))))
+          i
           (when (< i l)
-            (subs s i)))))))
+            (subs s i))
+          :else s)))))
 
-(defn fp-startsWith-fn [s ss]
+(defn fp-startsWith-fn [s & [ss]]
   (let [s (pick-single s)]
     (when (string? s)
-      (str/starts-with? s ss))))
+      (when ss
+        (str/starts-with? s ss)))))
 
-(defn fp-endsWith-fn [s ss]
+(defn fp-endsWith-fn [s & [ss]]
   (let [s (pick-single s)]
     (when (string? s)
-      (str/ends-with? s ss))))
+      (when ss
+        (str/ends-with? s ss)))))
 
-
-
-(defn fp-replace-fn [s ss r]
+(defn fp-upper-fn [s]
   (let [s (pick-single s)]
     (when (string? s)
+      (str/upper-case s))))
+
+(defn fp-lower-fn [s]
+  (let [s (pick-single s)]
+    (when (string? s)
+      (str/lower-case s))))
+
+
+
+(defn fp-replace-fn [s & [ss r]]
+  (let [s (pick-single s)]
+    (when (and (string? s) ss r)
       (str/replace s (re-pattern ss) r))))
 
-(defn fp-matches-fn [s ss]
+(defn fp-matches-fn [s & [ss]]
   (let [s (pick-single s)]
-    (when (string? s)
-      (not (nil? (re-matches (re-pattern ss) s))))))
+    (when (and (string? s) ss)
+      [(not (nil? (re-matches (re-pattern ss) s)))])))
 
 (defn fp-replaceMatches-fn [s ss r]
   (let [s (pick-single s)]
@@ -566,16 +597,13 @@
 (defn fp-or [a b]
   (cond (sequential? b)
         (cond
-          (true? a) [true]
-          (false? a) []
+          (boolean? a) a
           (sequential? a) []
           :else a)
         (sequential? a)
-        (if (true? b)
-          [true]
-          [])
+        (if (true? b) true [])
         :else
-        [(or a b)]))
+        (not (nil? (or a b)))))
 
 (defn fp-xor [a b]
   (cond
@@ -614,18 +642,19 @@
    ["inches" "m"] (fn [inches] (* inches 0.0254))})
 
 ;;TODO: implement ucum
-(defn fp-toQuantity [x unit]
+(defn fp-toQuantity-fn [x & [unit]]
   (->> (if (sequential? x) x [x])
        (mapv (fn [x]
-               (let [from (or (get x "unit") (get x :unit))
-                     v (or (get x "value") (get x :value))
-                     v (and v (if (string? v) (Double/parseDouble v) v))]
-                 (if (= from unit)
-                   x
-                   (do #_(println :conv x [from unit] x "->" v (get converters [from unit]))
-                     (if-let [conv (and v (get converters [from unit]))]
-                       {:value (conv v) :unit unit}
-                       {:error (str "No conversion from " from " to " unit)}))))))))
+               (when unit
+                 (let [from (or (get x "unit") (get x :unit))
+                       v (or (get x "value") (get x :value))
+                       v (and v (if (string? v) (Double/parseDouble v) v))]
+                   (if (= from unit)
+                     x
+                     (do #_(println :conv x [from unit] x "->" v (get converters [from unit]))
+                         (if-let [conv (and v (get converters [from unit]))]
+                           {:value (conv v) :unit unit}
+                           {:error (str "No conversion from " from " to " unit)})))))))))
 
 (defn fp-today-fn [s]
   (.format (java.time.LocalDate/now) java.time.format.DateTimeFormatter/ISO_LOCAL_DATE))
@@ -646,10 +675,25 @@
     (let [el (pick-single el)]
       [(not (nil? (some #(= % el) (seqy coll))))])))
 
+(defn fp-intersect-fn [& args]
+  [:intersect args])
+
+(defn fp-exclude-fn [& args]
+  [:exclude args])
+
 (defn fp-contains-fn [s ss]
   (let [s (pick-single s)]
     (when (string? s)
       (str/includes? s ss))))
+
+(defn fp-extension-fn [& args]
+  [:extension args])
+
+(defn fp-is-fn [& args]
+  [:is args])
+
+(defn fp-as-fn [& args]
+  [:as args])
 
 
 ;; (fp-descendants {:a [{:e 1 :d 20}] :b 2 :c 3})
